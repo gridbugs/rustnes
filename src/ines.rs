@@ -12,8 +12,21 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
+#[derive(Debug)]
 pub struct Ines {
     pub header: InesHeader,
+    pub trainer: Option<Vec<u8>>,
+    pub prg_rom: Vec<u8>,
+    pub chr_rom: Vec<u8>,
+    pub playchoice_inst_rom: Option<Vec<u8>>,
+    pub playchoice_prom: Option<PlaychoiceProm>,
+    pub extra: Vec<u8>,
+}
+
+#[derive(Debug)]
+pub struct PlaychoiceProm {
+    pub data: Vec<u8>,
+    pub counter_out: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -44,6 +57,13 @@ pub enum TvSystem {
 }
 
 const HEADER_NUM_BYTES: usize = 16;
+const TRAINER_NUM_BYTES: usize = 512;
+const PRG_ROM_BLOCK_SIZE: usize = 16384;
+const CHR_ROM_BLOCK_SIZE: usize = 8192;
+const PLAYCHOICE_NUM_BYTES: usize = 8192;
+const PLAYCHOICE_PROM_DATA_NUM_BYTES: usize = 16;
+const PLAYCHOICE_PROM_COUNTER_OUT_NUM_BYTES: usize = 16;
+
 
 // Header fields
 const HEADER_CHECKSUM: Range<usize> = Range { start: 0, end: 4 };
@@ -73,6 +93,68 @@ const FLAGS_7_MAPPER_NUMBER_HIGH_OFFSET: u8 = 4;
 const FLAGS_9_TV_SYSTEM_PAL_BIT: u8 = 0;
 
 impl Ines {
+
+    fn load(header: InesHeader, data: &[u8]) -> Self {
+        let mut index = 0;
+
+        let trainer = if header.trainer_present {
+            let mut v = vec![0; TRAINER_NUM_BYTES];
+            v.copy_from_slice(&data[index..(index + TRAINER_NUM_BYTES)]);
+            index += TRAINER_NUM_BYTES;
+            Some(v)
+        } else {
+            None
+        };
+
+        let prg_rom_num_bytes = header.prg_rom_size as usize *
+            PRG_ROM_BLOCK_SIZE;
+        let mut prg_rom = vec![0; prg_rom_num_bytes];
+        prg_rom.copy_from_slice(&data[index..(index + prg_rom_num_bytes)]);
+        index += prg_rom_num_bytes;
+
+        let chr_rom_num_bytes = header.chr_rom_size as usize *
+            CHR_ROM_BLOCK_SIZE;
+        let mut chr_rom = vec![0; chr_rom_num_bytes];
+        chr_rom.copy_from_slice(&data[index..(index + chr_rom_num_bytes)]);
+        index += chr_rom_num_bytes;
+
+        let (playchoice_inst_rom,
+             playchoice_prom) = if header.playchoice_present {
+
+            let mut inst_rom = vec![0; PLAYCHOICE_NUM_BYTES];
+            let mut prom_data = vec![0; PLAYCHOICE_PROM_DATA_NUM_BYTES];
+            let mut prom_counter_out = vec![0; PLAYCHOICE_PROM_COUNTER_OUT_NUM_BYTES];
+
+            inst_rom.copy_from_slice(&data[index..(index + PLAYCHOICE_NUM_BYTES)]);
+            index += PLAYCHOICE_NUM_BYTES;
+            prom_data.copy_from_slice(&data[index..(index + PLAYCHOICE_PROM_DATA_NUM_BYTES)]);
+            index += PLAYCHOICE_PROM_DATA_NUM_BYTES;
+            prom_counter_out.copy_from_slice(&data[index..(index + PLAYCHOICE_PROM_COUNTER_OUT_NUM_BYTES)]);
+            index += PLAYCHOICE_PROM_COUNTER_OUT_NUM_BYTES;
+
+            (Some(inst_rom), Some(PlaychoiceProm {
+                data: prom_data,
+                counter_out: prom_counter_out,
+            }))
+        } else {
+            (None, None)
+        };
+
+        let remaining = data.len() - index;
+        let mut extra = vec![0; remaining];
+        extra.copy_from_slice(&data[index..]);
+
+        Ines {
+            header: header,
+            trainer: trainer,
+            prg_rom: prg_rom,
+            chr_rom: chr_rom,
+            playchoice_inst_rom: playchoice_inst_rom,
+            playchoice_prom: playchoice_prom,
+            extra: extra,
+        }
+    }
+
     pub fn parse_file(mut file: fs::File) -> Result<Self> {
         let mut buffer = Vec::new();
 
@@ -87,9 +169,7 @@ impl Ines {
 
         let header = try!(InesHeader::parse(&buffer[0..HEADER_NUM_BYTES]));
 
-        Ok(Ines {
-            header: header,
-        })
+        Ok(Self::load(header, &buffer[HEADER_NUM_BYTES..]))
     }
 }
 

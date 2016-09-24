@@ -42,5 +42,5 @@ fn main() {
         Err(e) => panic!("{:?}", e),
     };
 
-    println!("{:?}", &ines.header);
+    println!("{:?}", ines);
 }
