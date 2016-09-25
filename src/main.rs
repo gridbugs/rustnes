@@ -6,8 +6,15 @@ use std::fs;
 
 use getopts::Options;
 
+mod nes;
 mod image;
 mod ines;
+mod memory_layout;
+mod ram;
+mod addressable;
+mod cartridge;
+mod nrom_cartridge;
+mod mos6502;
 
 fn make_arg_parser() -> Options {
     Options::new()
@@ -42,5 +49,8 @@ fn main() {
         Err(e) => panic!("{:?}", e),
     };
 
-    println!("{:?}", image);
+    match nes::make_nes(&image) {
+        Ok(n) => n,
+        Err(e) => panic!("{:?}", e),
+    };
 }

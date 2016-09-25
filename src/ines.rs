@@ -152,7 +152,7 @@ fn parse_header(header: &[u8]) -> Result<NesHeader> {
     };
 
     let prg_ram_size = if flags6 & (1 << FLAGS_6_PRG_RAM_BIT) != 0 {
-        Some(header[HEADER_PRG_RAM_SIZE])
+        Some(header[HEADER_PRG_RAM_SIZE] as usize)
     } else {
         None
     };
@@ -176,11 +176,11 @@ fn parse_header(header: &[u8]) -> Result<NesHeader> {
     };
 
     Ok(NesHeader {
-        prg_rom_size: header[HEADER_PRG_ROM_SIZE],
-        chr_rom_size: header[HEADER_CHR_ROM_SIZE],
+        prg_rom_size: header[HEADER_PRG_ROM_SIZE] as usize,
+        chr_rom_size: header[HEADER_CHR_ROM_SIZE] as usize,
         prg_ram_size: prg_ram_size,
         trainer_present: trainer_present,
-        mapper_number: mapper_number,
+        mapper_number: mapper_number as usize,
         playchoice_present: playchoice_present,
         vs_unisystem_present: vs_unisystem_present,
         nes2_format: nes2_format,

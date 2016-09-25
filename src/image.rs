@@ -11,14 +11,14 @@ pub struct NesImage {
 
 #[derive(Debug)]
 pub struct NesHeader {
-    pub prg_rom_size: u8,
-    pub chr_rom_size: u8,
-    pub prg_ram_size: Option<u8>,
+    pub prg_rom_size: usize,
+    pub chr_rom_size: usize,
+    pub prg_ram_size: Option<usize>,
     pub trainer_present: bool,
     pub vs_unisystem_present: bool,
     pub playchoice_present: bool,
     pub nes2_format: bool,
-    pub mapper_number: u8,
+    pub mapper_number: usize,
     pub video_arrangement: VideoArrangement,
     pub tv_system: TvSystem,
 }
