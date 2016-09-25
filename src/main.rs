@@ -6,8 +6,8 @@ use std::fs;
 
 use getopts::Options;
 
+mod image;
 mod ines;
-use ines::{Ines};
 
 fn make_arg_parser() -> Options {
     Options::new()
@@ -37,10 +37,10 @@ fn main() {
         Err(e) => panic!(e.to_string()),
     };
 
-    let ines = match Ines::parse_file(file) {
+    let image = match ines::parse_file(file) {
         Ok(i) => i,
         Err(e) => panic!("{:?}", e),
     };
 
-    println!("{:?}", ines);
+    println!("{:?}", image);
 }
