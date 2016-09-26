@@ -16,7 +16,7 @@ mod mirror;
 mod addressable;
 mod cartridge;
 mod nrom_cartridge;
-mod mos6502;
+mod cpu;
 
 fn make_arg_parser() -> Options {
     Options::new()

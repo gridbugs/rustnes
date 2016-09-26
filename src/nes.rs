@@ -4,13 +4,13 @@ use nrom_cartridge::NromCartridge;
 use cpu_memory_layout::NesCpuMemoryLayout;
 use addressable;
 use addressable::{Address, CpuAddressable};
-use mos6502::Mos6502;
+use cpu::Cpu;
 
 // A Nes is CpuAddressable for debugging purposes
 pub trait Nes: CpuAddressable {}
 
 pub struct NesWithCartridge<C: cartridge::Cartridge> {
-    cpu: Mos6502<NesCpuMemoryLayout<C::CpuInterface>>,
+    cpu: Cpu<NesCpuMemoryLayout<C::CpuInterface>>,
 }
 
 impl<C: cartridge::Cartridge> NesWithCartridge<C> {
@@ -19,7 +19,7 @@ impl<C: cartridge::Cartridge> NesWithCartridge<C> {
         let memory = NesCpuMemoryLayout::new(cpu_interface);
 
         NesWithCartridge {
-            cpu: Mos6502::new(memory),
+            cpu: Cpu::new(memory),
         }
     }
 }
