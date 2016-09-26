@@ -1,4 +1,4 @@
-use addressable::{PpuAddressable, Address, Result};
+use addressable::{CpuAddressable, PpuAddressable, Address, Result, Error};
 
 pub struct Ppu<Memory: PpuAddressable> {
     memory: Memory,
@@ -19,5 +19,15 @@ impl<Memory: PpuAddressable> PpuAddressable for Ppu<Memory> {
 
     fn ppu_write(&mut self, address: Address, data: u8) -> Result<()> {
         self.memory.ppu_write(address, data)
+    }
+}
+
+impl<Memory: PpuAddressable> CpuAddressable for Ppu<Memory> {
+    fn read(&mut self, address: Address) -> Result<u8> {
+        Err(Error::UnimplementedRead(address))
+    }
+
+    fn write(&mut self, address: Address, _: u8) -> Result<()> {
+        Err(Error::UnimplementedWrite(address))
     }
 }

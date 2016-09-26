@@ -21,6 +21,8 @@ mod cpu;
 mod ppu;
 mod ppu_memory_layout;
 mod debug;
+mod io_ports;
+mod expansion;
 
 use debug::NesDebug;
 

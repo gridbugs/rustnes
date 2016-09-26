@@ -21,13 +21,14 @@ pub const ROM_BANK_SIZE: usize = 0x4000;
 pub const RAM_BANK_SIZE: usize = 0x2000;
 pub const CHR_ROM_BANK_SIZE: usize = 0x2000;
 
-// CPU address space offsets
-pub const RAM_START: Address = 0x6000;
-pub const RAM_END: Address = 0x7fff;
-pub const LOWER_ROM_START: Address = 0x8000;
-pub const LOWER_ROM_END: Address = 0xbfff;
-pub const UPPER_ROM_START: Address = 0xc000;
-pub const UPPER_ROM_END: Address = 0xffff;
+// CPU address space offsets within cartridge
+pub const CARTRIDGE_START: Address = 0x6000;
+pub const RAM_START: Address = 0x6000 - CARTRIDGE_START;
+pub const RAM_END: Address = 0x7fff - CARTRIDGE_START;
+pub const LOWER_ROM_START: Address = 0x8000 - CARTRIDGE_START;
+pub const LOWER_ROM_END: Address = 0xbfff - CARTRIDGE_START;
+pub const UPPER_ROM_START: Address = 0xc000 - CARTRIDGE_START;
+pub const UPPER_ROM_END: Address = 0xffff - CARTRIDGE_START;
 
 // PPU address space offsets
 pub const PATTERN_TABLE_START: Address = 0x0000;

@@ -1,11 +1,27 @@
-use ram::{NesRam, NES_RAM_NUM_BYTES};
-use addressable::{CpuAddressable, PpuAddressable, Address, Result, Error};
+use ram::{NesRam};
+use addressable::{CpuAddressable, PpuAddressable, Address, AddressDiff, Result, Error};
 use cartridge::Cartridge;
 use ppu::Ppu;
 use ppu_memory_layout::NesPpuMemoryLayout;
+use io_ports::NesIoPorts;
+use expansion::NesExpansionRom;
 
-const RAM_MIRROR_START: Address = 0;
+const RAM_START: Address = 0x0000;
+const RAM_END: Address = 0x0800;
 const RAM_MIRROR_END: Address = 0x1fff;
+const RAM_SIZE: AddressDiff = RAM_END - RAM_START + 1;
+
+const PPU_REGISTER_START: Address = 0x2000;
+const PPU_REGISTER_END: Address = 0x2007;
+const PPU_REGISTER_MIRROR_START: Address = 0x2008;
+const PPU_REGISTER_MIRROR_END: Address = 0x3fff;
+const PPU_REGISTER_SIZE: AddressDiff = PPU_REGISTER_END - PPU_REGISTER_START + 1;
+
+const IO_PORTS_START: Address = 0x4000;
+const IO_PORTS_END: Address = 0x401f;
+
+const EXPANSION_ROM_START: Address = 0x4020;
+const EXPANSION_ROM_END: Address = 0x5fff;
 
 const CARTRIDGE_START: Address = 0x6000;
 const CARTRIDGE_END: Address = 0xffff;
@@ -14,10 +30,8 @@ pub struct NesCpuMemoryLayout<C: Cartridge> {
     ram: NesRam,
     cartridge: C::CpuInterface,
     ppu: Ppu<NesPpuMemoryLayout<C::PpuInterface>>,
-}
-
-fn resolve_mirrored_ram_address(address: Address) -> Address {
-    address % (NES_RAM_NUM_BYTES as u16)
+    io_ports: NesIoPorts,
+    expansion: NesExpansionRom,
 }
 
 impl<C: Cartridge> NesCpuMemoryLayout<C> {
@@ -29,6 +43,8 @@ impl<C: Cartridge> NesCpuMemoryLayout<C> {
             ram: NesRam::new(),
             cartridge: cpu_interface,
             ppu: Ppu::new(NesPpuMemoryLayout::new(ppu_interface)),
+            io_ports: NesIoPorts::new(),
+            expansion: NesExpansionRom::new(),
         }
     }
 }
@@ -36,12 +52,20 @@ impl<C: Cartridge> NesCpuMemoryLayout<C> {
 impl<C: Cartridge> CpuAddressable for NesCpuMemoryLayout<C> {
     fn read(&mut self, address: Address) -> Result<u8> {
         match address {
-            RAM_MIRROR_START ... RAM_MIRROR_END => {
-                let ram_address = resolve_mirrored_ram_address(address);
-                self.ram.read(ram_address)
+            RAM_START ... RAM_MIRROR_END => {
+                self.ram.read(address % RAM_SIZE)
+            },
+            PPU_REGISTER_START ... PPU_REGISTER_MIRROR_END => {
+                self.ppu.read((address - PPU_REGISTER_START) % PPU_REGISTER_SIZE)
+            },
+            IO_PORTS_START ... IO_PORTS_END => {
+                self.io_ports.read(address - IO_PORTS_START)
+            },
+            EXPANSION_ROM_START ... EXPANSION_ROM_END => {
+                self.expansion.read(address - EXPANSION_ROM_START)
             },
             CARTRIDGE_START ... CARTRIDGE_END => {
-                self.cartridge.read(address)
+                self.cartridge.read(address - CARTRIDGE_START)
             },
             _ => {
                 Err(Error::BusErrorRead(address))
@@ -50,13 +74,22 @@ impl<C: Cartridge> CpuAddressable for NesCpuMemoryLayout<C> {
     }
     fn write(&mut self, address: Address, data: u8) -> Result<()> {
         match address {
-            RAM_MIRROR_START ... RAM_MIRROR_END => {
-                let ram_address = resolve_mirrored_ram_address(address);
-                self.ram.write(ram_address, data)
+            RAM_START ... RAM_MIRROR_END => {
+                self.ram.write(address % RAM_SIZE, data)
+            },
+            PPU_REGISTER_START ... PPU_REGISTER_MIRROR_END => {
+                self.ppu.write((address - PPU_REGISTER_START) % PPU_REGISTER_SIZE, data)
+            },
+            IO_PORTS_START ... IO_PORTS_END => {
+                self.io_ports.write(address - IO_PORTS_START, data)
+            },
+            EXPANSION_ROM_START ... EXPANSION_ROM_END => {
+                self.expansion.write(address - EXPANSION_ROM_START, data)
             },
             CARTRIDGE_START ... CARTRIDGE_END => {
-                self.cartridge.write(address, data)
+                self.cartridge.write(address - CARTRIDGE_START, data)
             },
+
             _ => {
                 Err(Error::BusErrorWrite(address))
             }
