@@ -1,7 +1,7 @@
 use image::NesImage;
 use cartridge;
 use nrom_cartridge::NromCartridge;
-use memory_layout::NesMemoryLayout;
+use cpu_memory_layout::NesCpuMemoryLayout;
 use addressable;
 use addressable::{Address, Addressable};
 use mos6502::Mos6502;
@@ -34,7 +34,7 @@ impl<Memory: Addressable> Addressable for NesWithCartridge<Memory> {
 impl<Memory: Addressable> Nes for NesWithCartridge<Memory> {}
 
 fn make_nes_from_cartridge<Cartridge: 'static + Addressable>(cartridge: Cartridge) -> Box<Nes> {
-    let memory = NesMemoryLayout::new(cartridge);
+    let memory = NesCpuMemoryLayout::new(cartridge);
     Box::new(NesWithCartridge::new(memory))
 }
 

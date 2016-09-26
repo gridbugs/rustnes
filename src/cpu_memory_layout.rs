@@ -7,7 +7,7 @@ const RAM_MIRROR_END: Address = 0x1fff;
 const CARTRIDGE_START: Address = 0x6000;
 const CARTRIDGE_END: Address = 0xffff;
 
-pub struct NesMemoryLayout<Cartridge: Addressable> {
+pub struct NesCpuMemoryLayout<Cartridge: Addressable> {
     ram: NesRam,
     cartridge: Cartridge,
 }
@@ -16,16 +16,16 @@ fn resolve_mirrored_ram_address(address: Address) -> Address {
     address % (NES_RAM_NUM_BYTES as u16)
 }
 
-impl<Cartridge: Addressable> NesMemoryLayout<Cartridge> {
+impl<Cartridge: Addressable> NesCpuMemoryLayout<Cartridge> {
     pub fn new(cartridge: Cartridge) -> Self {
-        NesMemoryLayout {
+        NesCpuMemoryLayout {
             ram: NesRam::new(),
             cartridge: cartridge,
         }
     }
 }
 
-impl<Cartridge: Addressable> Addressable for NesMemoryLayout<Cartridge> {
+impl<Cartridge: Addressable> Addressable for NesCpuMemoryLayout<Cartridge> {
     fn read(&mut self, address: Address) -> Result<u8> {
         match address {
             RAM_MIRROR_START ... RAM_MIRROR_END => {

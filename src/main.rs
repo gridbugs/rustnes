@@ -9,7 +9,7 @@ use getopts::Options;
 mod nes;
 mod image;
 mod ines;
-mod memory_layout;
+mod cpu_memory_layout;
 mod ram;
 mod addressable;
 mod cartridge;
