@@ -16,9 +16,7 @@ pub struct NesWithCartridge<C: cartridge::Cartridge> {
 impl<C: cartridge::Cartridge> NesWithCartridge<C> {
     pub fn new(cartridge: C) -> Self {
 
-        NesWithCartridge {
-            cpu: Cpu::new(NesCpuMemoryLayout::new(cartridge)),
-        }
+        NesWithCartridge { cpu: Cpu::new(NesCpuMemoryLayout::new(cartridge)) }
     }
 }
 
@@ -55,12 +53,12 @@ pub fn make_nes(image: &NesImage) -> cartridge::Result<Box<Nes>> {
             match try!(NromCartridge::new(image)) {
                 NromCartridge::HorizontalMirroring(cartridge) => {
                     Ok(Box::new(NesWithCartridge::new(cartridge)))
-                },
+                }
                 NromCartridge::VerticalMirroring(cartridge) => {
                     Ok(Box::new(NesWithCartridge::new(cartridge)))
-                },
+                }
             }
-        },
+        }
         other => Err(cartridge::Error::UnknownMapper(other)),
     }
 }

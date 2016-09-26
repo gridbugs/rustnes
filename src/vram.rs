@@ -8,9 +8,7 @@ pub struct NesVram {
 
 impl NesVram {
     pub fn new() -> Self {
-        NesVram {
-            ram: vec![0; NES_VRAM_NUM_BYTES],
-        }
+        NesVram { ram: vec![0; NES_VRAM_NUM_BYTES] }
     }
 }
 

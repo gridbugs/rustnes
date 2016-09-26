@@ -51,7 +51,7 @@ fn main() {
         Err(_) => {
             print_usage(&program, parser);
             return;
-        },
+        }
     };
 
     let filename = if matches.free.is_empty() {
@@ -66,7 +66,7 @@ fn main() {
         Err(e) => {
             println!("{}", e.to_string());
             return;
-        },
+        }
     };
 
     let image = match ines::parse_file(file) {
@@ -74,7 +74,7 @@ fn main() {
         Err(e) => {
             println!("{:?}", e);
             return;
-        },
+        }
     };
 
     let mut nes = match nes::make_nes(&image) {
@@ -82,7 +82,7 @@ fn main() {
         Err(e) => {
             println!("{:?}", e);
             return;
-        },
+        }
     };
 
     if matches.opt_present("d") {

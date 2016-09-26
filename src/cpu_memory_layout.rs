@@ -1,4 +1,4 @@
-use ram::{NesRam};
+use ram::NesRam;
 use addressable::{CpuAddressable, PpuAddressable, Address, AddressDiff, Result, Error};
 use cartridge::Cartridge;
 use ppu::Ppu;
@@ -52,47 +52,33 @@ impl<C: Cartridge> NesCpuMemoryLayout<C> {
 impl<C: Cartridge> CpuAddressable for NesCpuMemoryLayout<C> {
     fn read(&mut self, address: Address) -> Result<u8> {
         match address {
-            RAM_START ... RAM_MIRROR_END => {
-                self.ram.read(address % RAM_SIZE)
-            },
-            PPU_REGISTER_START ... PPU_REGISTER_MIRROR_END => {
+            RAM_START...RAM_MIRROR_END => self.ram.read(address % RAM_SIZE),
+            PPU_REGISTER_START...PPU_REGISTER_MIRROR_END => {
                 self.ppu.read((address - PPU_REGISTER_START) % PPU_REGISTER_SIZE)
-            },
-            IO_PORTS_START ... IO_PORTS_END => {
-                self.io_ports.read(address - IO_PORTS_START)
-            },
-            EXPANSION_ROM_START ... EXPANSION_ROM_END => {
-                self.expansion.read(address - EXPANSION_ROM_START)
-            },
-            CARTRIDGE_START ... CARTRIDGE_END => {
-                self.cartridge.read(address - CARTRIDGE_START)
-            },
-            _ => {
-                Err(Error::BusErrorRead(address))
             }
+            IO_PORTS_START...IO_PORTS_END => self.io_ports.read(address - IO_PORTS_START),
+            EXPANSION_ROM_START...EXPANSION_ROM_END => {
+                self.expansion.read(address - EXPANSION_ROM_START)
+            }
+            CARTRIDGE_START...CARTRIDGE_END => self.cartridge.read(address - CARTRIDGE_START),
+            _ => Err(Error::BusErrorRead(address)),
         }
     }
     fn write(&mut self, address: Address, data: u8) -> Result<()> {
         match address {
-            RAM_START ... RAM_MIRROR_END => {
-                self.ram.write(address % RAM_SIZE, data)
-            },
-            PPU_REGISTER_START ... PPU_REGISTER_MIRROR_END => {
+            RAM_START...RAM_MIRROR_END => self.ram.write(address % RAM_SIZE, data),
+            PPU_REGISTER_START...PPU_REGISTER_MIRROR_END => {
                 self.ppu.write((address - PPU_REGISTER_START) % PPU_REGISTER_SIZE, data)
-            },
-            IO_PORTS_START ... IO_PORTS_END => {
-                self.io_ports.write(address - IO_PORTS_START, data)
-            },
-            EXPANSION_ROM_START ... EXPANSION_ROM_END => {
-                self.expansion.write(address - EXPANSION_ROM_START, data)
-            },
-            CARTRIDGE_START ... CARTRIDGE_END => {
-                self.cartridge.write(address - CARTRIDGE_START, data)
-            },
-
-            _ => {
-                Err(Error::BusErrorWrite(address))
             }
+            IO_PORTS_START...IO_PORTS_END => self.io_ports.write(address - IO_PORTS_START, data),
+            EXPANSION_ROM_START...EXPANSION_ROM_END => {
+                self.expansion.write(address - EXPANSION_ROM_START, data)
+            }
+            CARTRIDGE_START...CARTRIDGE_END => {
+                self.cartridge.write(address - CARTRIDGE_START, data)
+            }
+
+            _ => Err(Error::BusErrorWrite(address)),
         }
     }
 }

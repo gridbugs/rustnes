@@ -32,7 +32,10 @@ const HEADER_FLAGS_7: usize = 7;
 const HEADER_PRG_RAM_SIZE: usize = 8;
 const HEADER_FLAGS_9: usize = 9;
 const HEADER_FLAGS_10: usize = 10;
-const HEADER_ZERO_FILLED: Range<usize> = Range { start: 11, end: 16 };
+const HEADER_ZERO_FILLED: Range<usize> = Range {
+    start: 11,
+    end: 16,
+};
 
 // header bit flags
 
@@ -62,20 +65,17 @@ fn load(header: NesHeader, data: &[u8]) -> NesImage {
         None
     };
 
-    let prg_rom_num_bytes = header.prg_rom_size as usize *
-        PRG_ROM_BLOCK_SIZE;
+    let prg_rom_num_bytes = header.prg_rom_size as usize * PRG_ROM_BLOCK_SIZE;
     let mut prg_rom = vec![0; prg_rom_num_bytes];
     prg_rom.copy_from_slice(&data[index..(index + prg_rom_num_bytes)]);
     index += prg_rom_num_bytes;
 
-    let chr_rom_num_bytes = header.chr_rom_size as usize *
-        CHR_ROM_BLOCK_SIZE;
+    let chr_rom_num_bytes = header.chr_rom_size as usize * CHR_ROM_BLOCK_SIZE;
     let mut chr_rom = vec![0; chr_rom_num_bytes];
     chr_rom.copy_from_slice(&data[index..(index + chr_rom_num_bytes)]);
     index += chr_rom_num_bytes;
 
-    let (playchoice_inst_rom,
-         playchoice_prom) = if header.playchoice_present {
+    let (playchoice_inst_rom, playchoice_prom) = if header.playchoice_present {
 
         let mut inst_rom = vec![0; PLAYCHOICE_NUM_BYTES];
         let mut prom_data = vec![0; PLAYCHOICE_PROM_DATA_NUM_BYTES];
@@ -88,7 +88,8 @@ fn load(header: NesHeader, data: &[u8]) -> NesImage {
         prom_counter_out.copy_from_slice(&data[index..(index + PLAYCHOICE_PROM_COUNTER_OUT_NUM_BYTES)]);
         index += PLAYCHOICE_PROM_COUNTER_OUT_NUM_BYTES;
 
-        (Some(inst_rom), Some(PlaychoiceProm {
+        (Some(inst_rom),
+         Some(PlaychoiceProm {
             data: prom_data,
             counter_out: prom_counter_out,
         }))
@@ -165,9 +166,8 @@ fn parse_header(header: &[u8]) -> Result<NesHeader> {
     let mapper_number_high = flags7 >> FLAGS_7_MAPPER_NUMBER_HIGH_OFFSET;
     let mapper_number = mapper_number_low | (mapper_number_high << 4);
 
-    let nes2_format = ((flags7 & ((1 << FLAGS_7_NES2_LOW_BIT) |
-                                  (1 << FLAGS_7_NES2_HIGH_BIT))) >>
-        FLAGS_7_NES2_LOW_BIT) == 2;
+    let nes2_format = ((flags7 & ((1 << FLAGS_7_NES2_LOW_BIT) | (1 << FLAGS_7_NES2_HIGH_BIT))) >>
+                       FLAGS_7_NES2_LOW_BIT) == 2;
 
     let tv_system = if flags9 & (1 << FLAGS_9_TV_SYSTEM_PAL_BIT) != 0 {
         TvSystem::Pal

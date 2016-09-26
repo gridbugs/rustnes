@@ -32,10 +32,10 @@ impl NromCartridge {
         match image.header.video_arrangement {
             VideoArrangement::HorizontalMirroring => {
                 Ok(NromCartridge::HorizontalMirroring(try!(NromCartridgeWithMirror::new(image, HorizontalMirror))))
-            },
+            }
             VideoArrangement::VerticalMirroring => {
                 Ok(NromCartridge::VerticalMirroring(try!(NromCartridgeWithMirror::new(image, VerticalMirror))))
-            },
+            }
             _ => Err(cartridge::Error::InvalidNametableMirroring),
         }
     }

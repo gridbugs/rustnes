@@ -6,9 +6,7 @@ pub struct Ppu<Memory: PpuAddressable> {
 
 impl<Memory: PpuAddressable> Ppu<Memory> {
     pub fn new(memory: Memory) -> Self {
-        Ppu {
-            memory: memory,
-        }
+        Ppu { memory: memory }
     }
 }
 

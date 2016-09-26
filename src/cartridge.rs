@@ -62,18 +62,22 @@ pub trait PpuInterface {
 impl<C: CpuInterface> CpuAddressable for C {
     fn read(&mut self, address: Address) -> addressable::Result<u8> {
         match address {
-            RAM_START ... RAM_END => self.ram_read(address - RAM_START),
-            LOWER_ROM_START ... LOWER_ROM_END => self.lower_rom_read(address - LOWER_ROM_START),
-            UPPER_ROM_START ... UPPER_ROM_END => self.upper_rom_read(address - UPPER_ROM_START),
+            RAM_START...RAM_END => self.ram_read(address - RAM_START),
+            LOWER_ROM_START...LOWER_ROM_END => self.lower_rom_read(address - LOWER_ROM_START),
+            UPPER_ROM_START...UPPER_ROM_END => self.upper_rom_read(address - UPPER_ROM_START),
             _ => Err(addressable::Error::BusErrorRead(address)),
         }
     }
 
     fn write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
         match address {
-            RAM_START ... RAM_END => self.ram_write(address - RAM_START, data),
-            LOWER_ROM_START ... LOWER_ROM_END => self.lower_rom_write(address - LOWER_ROM_START, data),
-            UPPER_ROM_START ... UPPER_ROM_END => self.upper_rom_write(address - UPPER_ROM_START, data),
+            RAM_START...RAM_END => self.ram_write(address - RAM_START, data),
+            LOWER_ROM_START...LOWER_ROM_END => {
+                self.lower_rom_write(address - LOWER_ROM_START, data)
+            }
+            UPPER_ROM_START...UPPER_ROM_END => {
+                self.upper_rom_write(address - UPPER_ROM_START, data)
+            }
             _ => Err(addressable::Error::BusErrorWrite(address)),
         }
     }
@@ -82,16 +86,22 @@ impl<C: CpuInterface> CpuAddressable for C {
 impl<P: PpuInterface> PpuAddressable for P {
     fn ppu_read(&mut self, address: Address) -> addressable::Result<u8> {
         match address {
-            PATTERN_TABLE_START ... PATTERN_TABLE_END => self.pattern_table_read(address - PATTERN_TABLE_START),
-            NAME_TABLE_START ... NAME_TABLE_END => self.name_table_read(address - NAME_TABLE_START),
+            PATTERN_TABLE_START...PATTERN_TABLE_END => {
+                self.pattern_table_read(address - PATTERN_TABLE_START)
+            }
+            NAME_TABLE_START...NAME_TABLE_END => self.name_table_read(address - NAME_TABLE_START),
             _ => Err(addressable::Error::BusErrorRead(address)),
         }
     }
 
     fn ppu_write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
         match address {
-            PATTERN_TABLE_START ... PATTERN_TABLE_END => self.pattern_table_write(address - PATTERN_TABLE_START, data),
-            NAME_TABLE_START ... NAME_TABLE_END => self.name_table_write(address - NAME_TABLE_START, data),
+            PATTERN_TABLE_START...PATTERN_TABLE_END => {
+                self.pattern_table_write(address - PATTERN_TABLE_START, data)
+            }
+            NAME_TABLE_START...NAME_TABLE_END => {
+                self.name_table_write(address - NAME_TABLE_START, data)
+            }
             _ => Err(addressable::Error::BusErrorWrite(address)),
         }
     }
