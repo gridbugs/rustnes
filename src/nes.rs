@@ -3,25 +3,28 @@ use cartridge;
 use nrom_cartridge::NromCartridge;
 use cpu_memory_layout::NesCpuMemoryLayout;
 use addressable;
-use addressable::{Address, Addressable};
+use addressable::{Address, CpuAddressable};
 use mos6502::Mos6502;
 
-// A Nes is Addressable for debugging purposes
-pub trait Nes: Addressable {}
+// A Nes is CpuAddressable for debugging purposes
+pub trait Nes: CpuAddressable {}
 
-pub struct NesWithCartridge<Memory: Addressable> {
-    cpu: Mos6502<Memory>,
+pub struct NesWithCartridge<C: cartridge::Cartridge> {
+    cpu: Mos6502<NesCpuMemoryLayout<C::CpuInterface>>,
 }
 
-impl<Memory: Addressable> NesWithCartridge<Memory> {
-    pub fn new(memory: Memory) -> Self {
+impl<C: cartridge::Cartridge> NesWithCartridge<C> {
+    pub fn new(cartridge: C) -> Self {
+        let (cpu_interface, _) = cartridge.to_interfaces();
+        let memory = NesCpuMemoryLayout::new(cpu_interface);
+
         NesWithCartridge {
             cpu: Mos6502::new(memory),
         }
     }
 }
 
-impl<Memory: Addressable> Addressable for NesWithCartridge<Memory> {
+impl<C: cartridge::Cartridge> CpuAddressable for NesWithCartridge<C> {
     fn read(&mut self, address: Address) -> addressable::Result<u8> {
         self.cpu.read(address)
     }
@@ -31,12 +34,7 @@ impl<Memory: Addressable> Addressable for NesWithCartridge<Memory> {
     }
 }
 
-impl<Memory: Addressable> Nes for NesWithCartridge<Memory> {}
-
-fn make_nes_from_cartridge<Cartridge: 'static + Addressable>(cartridge: Cartridge) -> Box<Nes> {
-    let memory = NesCpuMemoryLayout::new(cartridge);
-    Box::new(NesWithCartridge::new(memory))
-}
+impl<C: cartridge::Cartridge> Nes for NesWithCartridge<C> {}
 
 // Creates a new nes emulator instance. This uses a trait object to prevent
 // the top-level nes type needing to be paramerized by a cartridge type.
@@ -46,8 +44,14 @@ fn make_nes_from_cartridge<Cartridge: 'static + Addressable>(cartridge: Cartridg
 pub fn make_nes(image: &NesImage) -> cartridge::Result<Box<Nes>> {
     match image.header.mapper_number {
         cartridge::NROM => {
-            let cartridge = try!(NromCartridge::new(image));
-            Ok(make_nes_from_cartridge(cartridge))
+            match try!(NromCartridge::new(image)) {
+                NromCartridge::HorizontalMirroring(cartridge) => {
+                    Ok(Box::new(NesWithCartridge::new(cartridge)))
+                },
+                NromCartridge::VerticalMirroring(cartridge) => {
+                    Ok(Box::new(NesWithCartridge::new(cartridge)))
+                },
+            }
         },
         other => Err(cartridge::Error::UnknownMapper(other)),
     }

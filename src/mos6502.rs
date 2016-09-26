@@ -1,10 +1,10 @@
-use addressable::{Addressable, Address, Result};
+use addressable::{CpuAddressable, Address, Result};
 
-pub struct Mos6502<Memory: Addressable> {
+pub struct Mos6502<Memory: CpuAddressable> {
     memory: Memory,
 }
 
-impl<Memory: Addressable> Mos6502<Memory> {
+impl<Memory: CpuAddressable> Mos6502<Memory> {
     pub fn new(memory: Memory) -> Self {
         Mos6502 {
             memory: memory,
@@ -12,7 +12,7 @@ impl<Memory: Addressable> Mos6502<Memory> {
     }
 }
 
-impl<Memory: Addressable> Addressable for Mos6502<Memory> {
+impl<Memory: CpuAddressable> CpuAddressable for Mos6502<Memory> {
     fn read(&mut self, address: Address) -> Result<u8> {
         self.memory.read(address)
     }

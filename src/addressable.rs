@@ -10,7 +10,12 @@ pub enum Error {
     IllegalWrite(Address),
 }
 
-pub trait Addressable {
+pub trait CpuAddressable {
+    fn read(&mut self, address: Address) -> Result<u8>;
+    fn write(&mut self, address: Address, data: u8) -> Result<()>;
+}
+
+pub trait PpuAddressable {
     fn read(&mut self, address: Address) -> Result<u8>;
     fn write(&mut self, address: Address, data: u8) -> Result<()>;
 }

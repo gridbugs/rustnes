@@ -11,6 +11,8 @@ mod image;
 mod ines;
 mod cpu_memory_layout;
 mod ram;
+mod vram;
+mod mirror;
 mod addressable;
 mod cartridge;
 mod nrom_cartridge;

@@ -1,20 +1,20 @@
-use addressable::{Address, CpuAddressable, Result};
+use addressable::{Address, PpuAddressable, Result};
 
-pub const NES_RAM_NUM_BYTES: usize = 0x800;
+pub const NES_VRAM_NUM_BYTES: usize = 0x800;
 
-pub struct NesRam {
+pub struct NesVram {
     ram: Vec<u8>,
 }
 
-impl NesRam {
+impl NesVram {
     pub fn new() -> Self {
-        NesRam {
-            ram: vec![0; NES_RAM_NUM_BYTES],
+        NesVram {
+            ram: vec![0; NES_VRAM_NUM_BYTES],
         }
     }
 }
 
-impl CpuAddressable for NesRam {
+impl PpuAddressable for NesVram {
     fn read(&mut self, address: Address) -> Result<u8> {
         Ok(self.ram[address as usize])
     }
