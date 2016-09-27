@@ -105,32 +105,8 @@ impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
         Ok(opcode)
     }
 
-    fn addressing_mode_read(&mut self, mode: AddressingMode) -> Result<u8> {
-        match mode {
-            AddressingMode::ZeroPageIndirectXIndexed => {
-                unimplemented!();
-            },
-            _ => unimplemented!(),
-        }
-    }
-
-    fn addressing_mode_write(&mut self, mode: AddressingMode, _: u8) -> Result<()> {
-        match mode {
-            AddressingMode::ZeroPageIndirectXIndexed => {
-                unimplemented!();
-            },
-            _ => unimplemented!(),
-        }
-    }
-
     fn emulate_instruction(&mut self, instruction: Instruction) -> Result<()> {
-        match instruction {
-            Instruction::ORA(mode) => {
-                try!(self.addressing_mode_read(mode));
-                unimplemented!();
-            },
-            _ => unimplemented!(),
-        }
+        println!("{:?}", instruction);
 
         Ok(())
     }
