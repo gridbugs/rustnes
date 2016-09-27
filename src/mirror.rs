@@ -6,7 +6,10 @@ pub trait Mirror {
     fn mirror(address: Address) -> Address;
 }
 
+#[derive(Debug)]
 pub struct HorizontalMirror;
+
+#[derive(Debug)]
 pub struct VerticalMirror;
 
 impl Mirror for HorizontalMirror {

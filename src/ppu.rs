@@ -13,11 +13,11 @@ impl<Memory: PpuAddressable> Ppu<Memory> {
 }
 
 impl<Memory: PpuAddressable> PpuAddressable for Ppu<Memory> {
-    fn read(&mut self, address: Address) -> Result<u8> {
-        self.memory.read(address)
+    fn ppu_read(&mut self, address: Address) -> Result<u8> {
+        self.memory.ppu_read(address)
     }
 
-    fn write(&mut self, address: Address, data: u8) -> Result<()> {
-        self.memory.write(address, data)
+    fn ppu_write(&mut self, address: Address, data: u8) -> Result<()> {
+        self.memory.ppu_write(address, data)
     }
 }

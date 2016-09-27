@@ -79,7 +79,7 @@ impl<C: CpuInterface> CpuAddressable for C {
 }
 
 impl<P: PpuInterface> PpuAddressable for P {
-    fn read(&mut self, address: Address) -> addressable::Result<u8> {
+    fn ppu_read(&mut self, address: Address) -> addressable::Result<u8> {
         match address {
             PATTERN_TABLE_START ... PATTERN_TABLE_END => self.pattern_table_read(address - PATTERN_TABLE_START),
             NAME_TABLE_START ... NAME_TABLE_END => self.name_table_read(address - NAME_TABLE_START),
@@ -87,7 +87,7 @@ impl<P: PpuInterface> PpuAddressable for P {
         }
     }
 
-    fn write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
+    fn ppu_write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
         match address {
             PATTERN_TABLE_START ... PATTERN_TABLE_END => self.pattern_table_write(address - PATTERN_TABLE_START, data),
             NAME_TABLE_START ... NAME_TABLE_END => self.name_table_write(address - NAME_TABLE_START, data),

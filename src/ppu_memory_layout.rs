@@ -29,37 +29,37 @@ impl<Cartridge: PpuAddressable> NesPpuMemoryLayout<Cartridge> {
 }
 
 impl<Cartridge: PpuAddressable> PpuAddressable for NesPpuMemoryLayout<Cartridge> {
-    fn read(&mut self, address: Address) -> Result<u8> {
+    fn ppu_read(&mut self, address: Address) -> Result<u8> {
         match address {
             CARTRIDGE_START ... CARTRIDGE_END => {
-                self.cartridge.read(address)
+                self.cartridge.ppu_read(address)
             },
             NAME_TABLE_MIRROR_START ... NAME_TABLE_MIRROR_END => {
-                self.cartridge.read(address - NAME_TABLE_MIRROR_OFFSET)
+                self.cartridge.ppu_read(address - NAME_TABLE_MIRROR_OFFSET)
             },
             PALETTE_START ... PALETTE_END => {
-                self.palette.read(address - PALETTE_START)
+                self.palette.ppu_read(address - PALETTE_START)
             },
             PALETTE_MIRROR_START ... PALETTE_MIRROR_END => {
-                self.palette.read((address - PALETTE_MIRROR_START) % PALETTE_SIZE)
+                self.palette.ppu_read((address - PALETTE_MIRROR_START) % PALETTE_SIZE)
             },
             _ => Err(Error::BusErrorRead(address)),
         }
     }
 
-    fn write(&mut self, address: Address, data: u8) -> Result<()> {
+    fn ppu_write(&mut self, address: Address, data: u8) -> Result<()> {
         match address {
             CARTRIDGE_START ... CARTRIDGE_END => {
-                self.cartridge.write(address, data)
+                self.cartridge.ppu_write(address, data)
             },
             NAME_TABLE_MIRROR_START ... NAME_TABLE_MIRROR_END => {
-                self.cartridge.write(address - NAME_TABLE_MIRROR_OFFSET, data)
+                self.cartridge.ppu_write(address - NAME_TABLE_MIRROR_OFFSET, data)
             },
             PALETTE_START ... PALETTE_END => {
-                self.palette.write(address - PALETTE_START, data)
+                self.palette.ppu_write(address - PALETTE_START, data)
             },
             PALETTE_MIRROR_START ... PALETTE_MIRROR_END => {
-                self.palette.write((address - PALETTE_MIRROR_START) % PALETTE_SIZE, data)
+                self.palette.ppu_write((address - PALETTE_MIRROR_START) % PALETTE_SIZE, data)
             },
             _ => Err(Error::BusErrorWrite(address)),
         }

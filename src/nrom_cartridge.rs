@@ -6,16 +6,8 @@ use vram::NesVram;
 use mirror::{Mirror, HorizontalMirror, VerticalMirror};
 use image::VideoArrangement;
 
-enum NromRom {
-    OneBank(Vec<u8>),
-    TwoBanks {
-        lower: Vec<u8>,
-        upper: Vec<u8>,
-    },
-}
-
 pub struct NromCpuInterface {
-    rom: NromRom,
+    rom: Vec<u8>,
     ram: Vec<u8>,
 }
 
@@ -57,17 +49,14 @@ impl<M: Mirror> NromCartridgeWithMirror<M> {
         }
 
         let rom = if image.header.prg_rom_size == 1 {
-            let mut bank = vec![0; cartridge::ROM_BANK_SIZE];
-            bank.copy_from_slice(&image.prg_rom[0..cartridge::ROM_BANK_SIZE]);
-            NromRom::OneBank(bank)
+            let mut bank = Vec::new();
+            bank.extend_from_slice(&image.prg_rom[0..cartridge::ROM_BANK_SIZE]);
+            bank.extend_from_slice(&image.prg_rom[0..cartridge::ROM_BANK_SIZE]);
+            bank
         } else if image.header.prg_rom_size == 2 {
-            let mut lower = vec![0; cartridge::ROM_BANK_SIZE];
-            let mut upper = vec![0; cartridge::ROM_BANK_SIZE];
-            lower.copy_from_slice(&image.prg_rom[0..cartridge::ROM_BANK_SIZE]);
-            upper.copy_from_slice(
-                &image.prg_rom[cartridge::ROM_BANK_SIZE..
-                               cartridge::ROM_BANK_SIZE * 2]);
-            NromRom::TwoBanks { lower: lower, upper: upper }
+            let mut banks = vec![0; cartridge::ROM_BANK_SIZE * 2];
+            banks.copy_from_slice(&image.prg_rom[0..cartridge::ROM_BANK_SIZE * 2]);
+            banks
         } else {
             return Err(cartridge::Error::InvalidRomSize);
         };
@@ -121,12 +110,7 @@ impl cartridge::CpuInterface for NromCpuInterface {
     }
 
     fn lower_rom_read(&mut self, address: Address) -> addressable::Result<u8> {
-        let bank = match &self.rom {
-            &NromRom::OneBank(ref bank) => bank,
-            &NromRom::TwoBanks { ref lower, upper: _ } => lower,
-        };
-
-        Ok(bank[address as usize])
+        Ok(self.rom[address as usize])
     }
 
     fn lower_rom_write(&mut self, address: Address, _: u8) -> addressable::Result<()> {
@@ -134,12 +118,7 @@ impl cartridge::CpuInterface for NromCpuInterface {
     }
 
     fn upper_rom_read(&mut self, address: Address) -> addressable::Result<u8> {
-        let bank = match &self.rom {
-            &NromRom::OneBank(ref bank) => bank,
-            &NromRom::TwoBanks { lower: _, ref upper } => upper,
-        };
-
-        Ok(bank[address as usize])
+        Ok(self.rom[address as usize + cartridge::ROM_BANK_SIZE])
     }
 
     fn upper_rom_write(&mut self, address: Address, _: u8) -> addressable::Result<()> {
@@ -151,15 +130,13 @@ impl<M: Mirror> cartridge::PpuInterface for NromPpuInterface<M> {
     fn pattern_table_read(&mut self, address: Address) -> addressable::Result<u8> {
         Ok(self.rom[address as usize])
     }
-    fn pattern_table_write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
-        // despite this being rom, we implement writes to it
-        self.rom[address as usize] = data;
-        Ok(())
+    fn pattern_table_write(&mut self, address: Address, _: u8) -> addressable::Result<()> {
+        Err(addressable::Error::IllegalWrite(address))
     }
     fn name_table_read(&mut self, address: Address) -> addressable::Result<u8> {
-        self.internal_ram.read(M::mirror(address))
+        self.internal_ram.ppu_read(M::mirror(address))
     }
     fn name_table_write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
-        self.internal_ram.write(M::mirror(address), data)
+        self.internal_ram.ppu_write(M::mirror(address), data)
     }
 }

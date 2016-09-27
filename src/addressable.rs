@@ -19,6 +19,6 @@ pub trait CpuAddressable {
 }
 
 pub trait PpuAddressable {
-    fn read(&mut self, address: Address) -> Result<u8>;
-    fn write(&mut self, address: Address, data: u8) -> Result<()>;
+    fn ppu_read(&mut self, address: Address) -> Result<u8>;
+    fn ppu_write(&mut self, address: Address, data: u8) -> Result<()>;
 }

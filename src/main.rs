@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 extern crate getopts;
 
+use getopts::Options;
+
 use std::env;
 use std::fs;
-
-use getopts::Options;
 
 mod nes;
 mod image;
@@ -20,9 +20,22 @@ mod nrom_cartridge;
 mod cpu;
 mod ppu;
 mod ppu_memory_layout;
+mod debug;
+
+use debug::NesDebug;
 
 fn make_arg_parser() -> Options {
-    Options::new()
+    let mut opts = Options::new();
+
+    opts.optflag("d", "dump", "Print the contents of ROM");
+    opts.optflag("h", "help", "Print help menu");
+
+    opts
+}
+
+fn print_usage(program: &str, parser: Options) {
+    let brief = format!("Usage: {} FILE", program);
+    println!("{}", parser.usage(&brief));
 }
 
 fn main() {
@@ -33,12 +46,14 @@ fn main() {
 
     let matches = match parser.parse(&args[1..]) {
         Ok(m) => m,
-        Err(f) => panic!(f.to_string()),
+        Err(_) => {
+            print_usage(&program, parser);
+            return;
+        },
     };
 
     let filename = if matches.free.is_empty() {
-        let brief = format!("Usage: {} FILE", program);
-        println!("{}", parser.usage(&brief));
+        print_usage(&program, parser);
         return;
     } else {
         matches.free[0].clone()
@@ -46,16 +61,30 @@ fn main() {
 
     let file = match fs::File::open(filename) {
         Ok(f) => f,
-        Err(e) => panic!(e.to_string()),
+        Err(e) => {
+            println!("{}", e.to_string());
+            return;
+        },
     };
 
     let image = match ines::parse_file(file) {
         Ok(i) => i,
-        Err(e) => panic!("{:?}", e),
+        Err(e) => {
+            println!("{:?}", e);
+            return;
+        },
     };
 
-    match nes::make_nes(&image) {
+    let mut nes = match nes::make_nes(&image) {
         Ok(n) => n,
-        Err(e) => panic!("{:?}", e),
+        Err(e) => {
+            println!("{:?}", e);
+            return;
+        },
     };
+
+    if matches.opt_present("d") {
+        println!("{}", (&mut nes).dump_rom());
+        return;
+    }
 }
