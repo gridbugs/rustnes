@@ -4,13 +4,16 @@ use nrom_cartridge::NromCartridge;
 use cpu_memory_layout::NesCpuMemoryLayout;
 use addressable;
 use addressable::{Address, CpuAddressable, PpuAddressable};
-use cpu::Cpu;
+use cpu::{Cpu, RegisterFile};
 
 // A Nes is CpuAddressable for debugging purposes
-pub trait Nes: CpuAddressable + PpuAddressable {}
+pub trait Nes: CpuAddressable + PpuAddressable {
+    fn init(&mut self) -> addressable::Result<()>;
+    fn cpu_registers(&self) -> &RegisterFile;
+}
 
 pub struct NesWithCartridge<C: cartridge::Cartridge> {
-    cpu: Cpu<NesCpuMemoryLayout<C>>,
+    pub cpu: Cpu<NesCpuMemoryLayout<C>>,
 }
 
 impl<C: cartridge::Cartridge> NesWithCartridge<C> {
@@ -40,7 +43,14 @@ impl<C: cartridge::Cartridge> PpuAddressable for NesWithCartridge<C> {
     }
 }
 
-impl<C: cartridge::Cartridge> Nes for NesWithCartridge<C> {}
+impl<C: cartridge::Cartridge> Nes for NesWithCartridge<C> {
+    fn init(&mut self) -> addressable::Result<()> {
+        self.cpu.init()
+    }
+    fn cpu_registers(&self) -> &RegisterFile {
+        &self.cpu.registers
+    }
+}
 
 // Creates a new nes emulator instance. This uses a trait object to prevent
 // the top-level nes type needing to be paramerized by a cartridge type.

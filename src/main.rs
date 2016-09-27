@@ -89,4 +89,7 @@ fn main() {
         println!("{}", (&mut nes).dump_rom());
         return;
     }
+
+    nes.init().expect("initialization failed");
+    println!("{}", nes.cpu_registers());
 }
