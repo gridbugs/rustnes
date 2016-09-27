@@ -64,18 +64,18 @@ impl<C: Cartridge> CpuAddressable for NesCpuMemoryLayout<C> {
             _ => Err(Error::BusErrorRead(address)),
         }
     }
-    fn write(&mut self, address: Address, data: u8) -> Result<()> {
+    fn write8(&mut self, address: Address, data: u8) -> Result<()> {
         match address {
-            RAM_START...RAM_MIRROR_END => self.ram.write(address % RAM_SIZE, data),
+            RAM_START...RAM_MIRROR_END => self.ram.write8(address % RAM_SIZE, data),
             PPU_REGISTER_START...PPU_REGISTER_MIRROR_END => {
-                self.ppu.write((address - PPU_REGISTER_START) % PPU_REGISTER_SIZE, data)
+                self.ppu.write8((address - PPU_REGISTER_START) % PPU_REGISTER_SIZE, data)
             }
-            IO_PORTS_START...IO_PORTS_END => self.io_ports.write(address - IO_PORTS_START, data),
+            IO_PORTS_START...IO_PORTS_END => self.io_ports.write8(address - IO_PORTS_START, data),
             EXPANSION_ROM_START...EXPANSION_ROM_END => {
-                self.expansion.write(address - EXPANSION_ROM_START, data)
+                self.expansion.write8(address - EXPANSION_ROM_START, data)
             }
             CARTRIDGE_START...CARTRIDGE_END => {
-                self.cartridge.write(address - CARTRIDGE_START, data)
+                self.cartridge.write8(address - CARTRIDGE_START, data)
             }
 
             _ => Err(Error::BusErrorWrite(address)),
@@ -88,7 +88,7 @@ impl<C: Cartridge> PpuAddressable for NesCpuMemoryLayout<C> {
         self.ppu.ppu_read8(address)
     }
 
-    fn ppu_write(&mut self, address: Address, data: u8) -> Result<()> {
-        self.ppu.ppu_write(address, data)
+    fn ppu_write8(&mut self, address: Address, data: u8) -> Result<()> {
+        self.ppu.ppu_write8(address, data)
     }
 }

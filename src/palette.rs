@@ -13,7 +13,7 @@ impl PpuAddressable for Palette {
         Err(Error::UnimplementedRead(address))
     }
 
-    fn ppu_write(&mut self, address: Address, _: u8) -> Result<()> {
+    fn ppu_write8(&mut self, address: Address, _: u8) -> Result<()> {
         Err(Error::UnimplementedWrite(address))
     }
 }

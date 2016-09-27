@@ -17,7 +17,7 @@ impl CpuAddressable for NesRam {
         Ok(self.ram[address as usize])
     }
 
-    fn write(&mut self, address: Address, data: u8) -> Result<()> {
+    fn write8(&mut self, address: Address, data: u8) -> Result<()> {
         self.ram[address as usize] = data;
         Ok(())
     }

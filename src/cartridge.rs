@@ -69,7 +69,7 @@ impl<C: CpuInterface> CpuAddressable for C {
         }
     }
 
-    fn write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
+    fn write8(&mut self, address: Address, data: u8) -> addressable::Result<()> {
         match address {
             RAM_START...RAM_END => self.ram_write(address - RAM_START, data),
             LOWER_ROM_START...LOWER_ROM_END => {
@@ -94,7 +94,7 @@ impl<P: PpuInterface> PpuAddressable for P {
         }
     }
 
-    fn ppu_write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
+    fn ppu_write8(&mut self, address: Address, data: u8) -> addressable::Result<()> {
         match address {
             PATTERN_TABLE_START...PATTERN_TABLE_END => {
                 self.pattern_table_write(address - PATTERN_TABLE_START, data)

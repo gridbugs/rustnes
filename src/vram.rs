@@ -17,7 +17,7 @@ impl PpuAddressable for NesVram {
         Ok(self.ram[address as usize])
     }
 
-    fn ppu_write(&mut self, address: Address, data: u8) -> Result<()> {
+    fn ppu_write8(&mut self, address: Address, data: u8) -> Result<()> {
         self.ram[address as usize] = data;
         Ok(())
     }

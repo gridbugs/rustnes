@@ -13,7 +13,7 @@ impl CpuAddressable for NesIoPorts {
         Err(Error::UnimplementedRead(address))
     }
 
-    fn write(&mut self, address: Address, _: u8) -> Result<()> {
+    fn write8(&mut self, address: Address, _: u8) -> Result<()> {
         Err(Error::UnimplementedWrite(address))
     }
 }

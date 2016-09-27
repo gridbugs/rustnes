@@ -15,8 +15,8 @@ impl<Memory: CpuAddressable + PpuAddressable> CpuAddressable for Cpu<Memory> {
         self.memory.read8(address)
     }
 
-    fn write(&mut self, address: Address, data: u8) -> Result<()> {
-        self.memory.write(address, data)
+    fn write8(&mut self, address: Address, data: u8) -> Result<()> {
+        self.memory.write8(address, data)
     }
 }
 
@@ -25,7 +25,7 @@ impl<Memory: CpuAddressable + PpuAddressable> PpuAddressable for Cpu<Memory> {
         self.memory.ppu_read8(address)
     }
 
-    fn ppu_write(&mut self, address: Address, data: u8) -> Result<()> {
-        self.memory.ppu_write(address, data)
+    fn ppu_write8(&mut self, address: Address, data: u8) -> Result<()> {
+        self.memory.ppu_write8(address, data)
     }
 }

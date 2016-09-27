@@ -43,15 +43,15 @@ impl<Cartridge: PpuAddressable> PpuAddressable for NesPpuMemoryLayout<Cartridge>
         }
     }
 
-    fn ppu_write(&mut self, address: Address, data: u8) -> Result<()> {
+    fn ppu_write8(&mut self, address: Address, data: u8) -> Result<()> {
         match address {
-            CARTRIDGE_START...CARTRIDGE_END => self.cartridge.ppu_write(address, data),
+            CARTRIDGE_START...CARTRIDGE_END => self.cartridge.ppu_write8(address, data),
             NAME_TABLE_MIRROR_START...NAME_TABLE_MIRROR_END => {
-                self.cartridge.ppu_write(address - NAME_TABLE_MIRROR_OFFSET, data)
+                self.cartridge.ppu_write8(address - NAME_TABLE_MIRROR_OFFSET, data)
             }
-            PALETTE_START...PALETTE_END => self.palette.ppu_write(address - PALETTE_START, data),
+            PALETTE_START...PALETTE_END => self.palette.ppu_write8(address - PALETTE_START, data),
             PALETTE_MIRROR_START...PALETTE_MIRROR_END => {
-                self.palette.ppu_write((address - PALETTE_MIRROR_START) % PALETTE_SIZE, data)
+                self.palette.ppu_write8((address - PALETTE_MIRROR_START) % PALETTE_SIZE, data)
             }
             _ => Err(Error::BusErrorWrite(address)),
         }
