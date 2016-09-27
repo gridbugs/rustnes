@@ -50,17 +50,17 @@ impl<C: Cartridge> NesCpuMemoryLayout<C> {
 }
 
 impl<C: Cartridge> CpuAddressable for NesCpuMemoryLayout<C> {
-    fn read(&mut self, address: Address) -> Result<u8> {
+    fn read8(&mut self, address: Address) -> Result<u8> {
         match address {
-            RAM_START...RAM_MIRROR_END => self.ram.read(address % RAM_SIZE),
+            RAM_START...RAM_MIRROR_END => self.ram.read8(address % RAM_SIZE),
             PPU_REGISTER_START...PPU_REGISTER_MIRROR_END => {
-                self.ppu.read((address - PPU_REGISTER_START) % PPU_REGISTER_SIZE)
+                self.ppu.read8((address - PPU_REGISTER_START) % PPU_REGISTER_SIZE)
             }
-            IO_PORTS_START...IO_PORTS_END => self.io_ports.read(address - IO_PORTS_START),
+            IO_PORTS_START...IO_PORTS_END => self.io_ports.read8(address - IO_PORTS_START),
             EXPANSION_ROM_START...EXPANSION_ROM_END => {
-                self.expansion.read(address - EXPANSION_ROM_START)
+                self.expansion.read8(address - EXPANSION_ROM_START)
             }
-            CARTRIDGE_START...CARTRIDGE_END => self.cartridge.read(address - CARTRIDGE_START),
+            CARTRIDGE_START...CARTRIDGE_END => self.cartridge.read8(address - CARTRIDGE_START),
             _ => Err(Error::BusErrorRead(address)),
         }
     }
@@ -84,8 +84,8 @@ impl<C: Cartridge> CpuAddressable for NesCpuMemoryLayout<C> {
 }
 
 impl<C: Cartridge> PpuAddressable for NesCpuMemoryLayout<C> {
-    fn ppu_read(&mut self, address: Address) -> Result<u8> {
-        self.ppu.ppu_read(address)
+    fn ppu_read8(&mut self, address: Address) -> Result<u8> {
+        self.ppu.ppu_read8(address)
     }
 
     fn ppu_write(&mut self, address: Address, data: u8) -> Result<()> {

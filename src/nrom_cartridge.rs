@@ -134,7 +134,7 @@ impl<M: Mirror> cartridge::PpuInterface for NromPpuInterface<M> {
         Err(addressable::Error::IllegalWrite(address))
     }
     fn name_table_read(&mut self, address: Address) -> addressable::Result<u8> {
-        self.internal_ram.ppu_read(M::mirror(address))
+        self.internal_ram.ppu_read8(M::mirror(address))
     }
     fn name_table_write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
         self.internal_ram.ppu_write(M::mirror(address), data)

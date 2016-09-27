@@ -29,15 +29,15 @@ impl<Cartridge: PpuAddressable> NesPpuMemoryLayout<Cartridge> {
 }
 
 impl<Cartridge: PpuAddressable> PpuAddressable for NesPpuMemoryLayout<Cartridge> {
-    fn ppu_read(&mut self, address: Address) -> Result<u8> {
+    fn ppu_read8(&mut self, address: Address) -> Result<u8> {
         match address {
-            CARTRIDGE_START...CARTRIDGE_END => self.cartridge.ppu_read(address),
+            CARTRIDGE_START...CARTRIDGE_END => self.cartridge.ppu_read8(address),
             NAME_TABLE_MIRROR_START...NAME_TABLE_MIRROR_END => {
-                self.cartridge.ppu_read(address - NAME_TABLE_MIRROR_OFFSET)
+                self.cartridge.ppu_read8(address - NAME_TABLE_MIRROR_OFFSET)
             }
-            PALETTE_START...PALETTE_END => self.palette.ppu_read(address - PALETTE_START),
+            PALETTE_START...PALETTE_END => self.palette.ppu_read8(address - PALETTE_START),
             PALETTE_MIRROR_START...PALETTE_MIRROR_END => {
-                self.palette.ppu_read((address - PALETTE_MIRROR_START) % PALETTE_SIZE)
+                self.palette.ppu_read8((address - PALETTE_MIRROR_START) % PALETTE_SIZE)
             }
             _ => Err(Error::BusErrorRead(address)),
         }

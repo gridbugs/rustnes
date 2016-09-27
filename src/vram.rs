@@ -13,7 +13,7 @@ impl NesVram {
 }
 
 impl PpuAddressable for NesVram {
-    fn ppu_read(&mut self, address: Address) -> Result<u8> {
+    fn ppu_read8(&mut self, address: Address) -> Result<u8> {
         Ok(self.ram[address as usize])
     }
 

@@ -9,7 +9,7 @@ impl NesExpansionRom {
 }
 
 impl CpuAddressable for NesExpansionRom {
-    fn read(&mut self, address: Address) -> Result<u8> {
+    fn read8(&mut self, address: Address) -> Result<u8> {
         Err(Error::UnimplementedRead(address))
     }
 

@@ -60,7 +60,7 @@ pub trait PpuInterface {
 }
 
 impl<C: CpuInterface> CpuAddressable for C {
-    fn read(&mut self, address: Address) -> addressable::Result<u8> {
+    fn read8(&mut self, address: Address) -> addressable::Result<u8> {
         match address {
             RAM_START...RAM_END => self.ram_read(address - RAM_START),
             LOWER_ROM_START...LOWER_ROM_END => self.lower_rom_read(address - LOWER_ROM_START),
@@ -84,7 +84,7 @@ impl<C: CpuInterface> CpuAddressable for C {
 }
 
 impl<P: PpuInterface> PpuAddressable for P {
-    fn ppu_read(&mut self, address: Address) -> addressable::Result<u8> {
+    fn ppu_read8(&mut self, address: Address) -> addressable::Result<u8> {
         match address {
             PATTERN_TABLE_START...PATTERN_TABLE_END => {
                 self.pattern_table_read(address - PATTERN_TABLE_START)

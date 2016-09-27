@@ -21,8 +21,8 @@ impl<C: cartridge::Cartridge> NesWithCartridge<C> {
 }
 
 impl<C: cartridge::Cartridge> CpuAddressable for NesWithCartridge<C> {
-    fn read(&mut self, address: Address) -> addressable::Result<u8> {
-        self.cpu.read(address)
+    fn read8(&mut self, address: Address) -> addressable::Result<u8> {
+        self.cpu.read8(address)
     }
 
     fn write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
@@ -31,8 +31,8 @@ impl<C: cartridge::Cartridge> CpuAddressable for NesWithCartridge<C> {
 }
 
 impl<C: cartridge::Cartridge> PpuAddressable for NesWithCartridge<C> {
-    fn ppu_read(&mut self, address: Address) -> addressable::Result<u8> {
-        self.cpu.ppu_read(address)
+    fn ppu_read8(&mut self, address: Address) -> addressable::Result<u8> {
+        self.cpu.ppu_read8(address)
     }
 
     fn ppu_write(&mut self, address: Address, data: u8) -> addressable::Result<()> {

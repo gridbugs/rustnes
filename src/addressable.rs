@@ -14,11 +14,11 @@ pub enum Error {
 }
 
 pub trait CpuAddressable {
-    fn read(&mut self, address: Address) -> Result<u8>;
+    fn read8(&mut self, address: Address) -> Result<u8>;
     fn write(&mut self, address: Address, data: u8) -> Result<()>;
 }
 
 pub trait PpuAddressable {
-    fn ppu_read(&mut self, address: Address) -> Result<u8>;
+    fn ppu_read8(&mut self, address: Address) -> Result<u8>;
     fn ppu_write(&mut self, address: Address, data: u8) -> Result<()>;
 }

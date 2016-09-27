@@ -13,7 +13,7 @@ impl NesRam {
 }
 
 impl CpuAddressable for NesRam {
-    fn read(&mut self, address: Address) -> Result<u8> {
+    fn read8(&mut self, address: Address) -> Result<u8> {
         Ok(self.ram[address as usize])
     }
 

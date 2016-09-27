@@ -9,7 +9,7 @@ impl Palette {
 }
 
 impl PpuAddressable for Palette {
-    fn ppu_read(&mut self, address: Address) -> Result<u8> {
+    fn ppu_read8(&mut self, address: Address) -> Result<u8> {
         Err(Error::UnimplementedRead(address))
     }
 

@@ -35,7 +35,7 @@ impl<'a> fmt::Display for NesRomDump<'a> {
         try!(writeln!(f, "==========================================="));
         for i in 0..PRG_ROM_SIZE {
             let addr = PRG_ROM_START + i;
-            if let Ok(data) = nes.read(addr) {
+            if let Ok(data) = nes.read8(addr) {
                 if i == 0 {
                     try!(write!(f, "\nPRG ROM Bank 0:"));
                     try!(write!(f, "\n-------------------------------------------"));
@@ -60,7 +60,7 @@ impl<'a> fmt::Display for NesRomDump<'a> {
         try!(writeln!(f, "=========================================="));
         for i in 0..PATTERN_TABLE_SIZE {
             let addr = PATTERN_TABLE_START + i;
-            if let Ok(data) = nes.ppu_read(addr) {
+            if let Ok(data) = nes.ppu_read8(addr) {
                 if i == 0 {
                     try!(write!(f, "\nPattern Table 0:"));
                     try!(write!(f, "\n-------------------------------------------"));
