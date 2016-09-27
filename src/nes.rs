@@ -4,12 +4,14 @@ use nrom_cartridge::NromCartridge;
 use cpu_memory_layout::NesCpuMemoryLayout;
 use addressable;
 use addressable::{Address, CpuAddressable, PpuAddressable};
+use cpu;
 use cpu::{Cpu, RegisterFile};
 
 // A Nes is CpuAddressable for debugging purposes
 pub trait Nes: CpuAddressable + PpuAddressable {
-    fn init(&mut self) -> addressable::Result<()>;
+    fn init(&mut self) -> cpu::Result<()>;
     fn cpu_registers(&self) -> &RegisterFile;
+    fn cpu_tick(&mut self) -> cpu::Result<()>;
 }
 
 pub struct NesWithCartridge<C: cartridge::Cartridge> {
@@ -44,11 +46,14 @@ impl<C: cartridge::Cartridge> PpuAddressable for NesWithCartridge<C> {
 }
 
 impl<C: cartridge::Cartridge> Nes for NesWithCartridge<C> {
-    fn init(&mut self) -> addressable::Result<()> {
+    fn init(&mut self) -> cpu::Result<()> {
         self.cpu.init()
     }
     fn cpu_registers(&self) -> &RegisterFile {
         &self.cpu.registers
+    }
+    fn cpu_tick(&mut self) -> cpu::Result<()> {
+        self.cpu.tick()
     }
 }
 

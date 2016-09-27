@@ -23,6 +23,7 @@ mod ppu_memory_layout;
 mod debug;
 mod io_ports;
 mod expansion;
+mod instruction;
 
 use debug::NesDebug;
 
@@ -92,4 +93,5 @@ fn main() {
 
     nes.init().expect("initialization failed");
     println!("{}", nes.cpu_registers());
+    nes.cpu_tick().unwrap();
 }

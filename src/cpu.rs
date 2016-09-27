@@ -1,6 +1,19 @@
 use std::fmt;
+use std::result;
 
-use addressable::{CpuAddressable, PpuAddressable, Address, Result};
+use addressable;
+use instruction;
+
+use instruction::{Instruction, AddressingMode};
+use addressable::{CpuAddressable, PpuAddressable, Address};
+
+pub type Result<T> = result::Result<T, Error>;
+
+#[derive(Debug)]
+pub enum Error {
+    InstructionError(instruction::Error),
+    MemoryError(addressable::Error),
+}
 
 pub struct RegisterFile {
     accumulator: u8,
@@ -44,6 +57,7 @@ pub struct Cpu<Memory: CpuAddressable + PpuAddressable> {
 }
 
 const RESET_VECTOR: Address = 0xfffc;
+type InstructionOpcode = u8;
 
 impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
     pub fn new(memory: Memory) -> Self {
@@ -54,27 +68,90 @@ impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
     }
 
     pub fn init(&mut self) -> Result<()> {
-        self.registers.program_counter = try!(self.memory.read16_le(RESET_VECTOR));
+        self.registers.program_counter = match self.read16_le(RESET_VECTOR) {
+            Ok(pc) => pc,
+            Err(e) => return Err(Error::MemoryError(e)),
+        };
+
+        Ok(())
+    }
+
+    pub fn tick(&mut self) -> Result<()> {
+        let opcode = try!(self.fetch_instruction());
+
+        let instruction = try!(Self::decode_instruction(opcode));
+
+        try!(self.emulate_instruction(instruction));
+
+        Ok(())
+    }
+
+    fn decode_instruction(opcode: InstructionOpcode) -> Result<Instruction> {
+        match Instruction::decode(opcode) {
+            Ok(i) => Ok(i),
+            Err(e) => Err(Error::InstructionError(e)),
+        }
+    }
+
+    fn fetch_instruction(&mut self) -> Result<InstructionOpcode> {
+        let pc = self.registers.program_counter;
+        let opcode = match self.read8(pc) {
+            Ok(o) => o,
+            Err(e) => return Err(Error::MemoryError(e)),
+        };
+
+        self.registers.program_counter = pc.wrapping_add(1);
+
+        Ok(opcode)
+    }
+
+    fn addressing_mode_read(&mut self, mode: AddressingMode) -> Result<u8> {
+        match mode {
+            AddressingMode::ZeroPageIndirectXIndexed => {
+                unimplemented!();
+            },
+            _ => unimplemented!(),
+        }
+    }
+
+    fn addressing_mode_write(&mut self, mode: AddressingMode, _: u8) -> Result<()> {
+        match mode {
+            AddressingMode::ZeroPageIndirectXIndexed => {
+                unimplemented!();
+            },
+            _ => unimplemented!(),
+        }
+    }
+
+    fn emulate_instruction(&mut self, instruction: Instruction) -> Result<()> {
+        match instruction {
+            Instruction::ORA(mode) => {
+                try!(self.addressing_mode_read(mode));
+                unimplemented!();
+            },
+            _ => unimplemented!(),
+        }
+
         Ok(())
     }
 }
 
 impl<Memory: CpuAddressable + PpuAddressable> CpuAddressable for Cpu<Memory> {
-    fn read8(&mut self, address: Address) -> Result<u8> {
+    fn read8(&mut self, address: Address) -> addressable::Result<u8> {
         self.memory.read8(address)
     }
 
-    fn write8(&mut self, address: Address, data: u8) -> Result<()> {
+    fn write8(&mut self, address: Address, data: u8) -> addressable::Result<()> {
         self.memory.write8(address, data)
     }
 }
 
 impl<Memory: CpuAddressable + PpuAddressable> PpuAddressable for Cpu<Memory> {
-    fn ppu_read8(&mut self, address: Address) -> Result<u8> {
+    fn ppu_read8(&mut self, address: Address) -> addressable::Result<u8> {
         self.memory.ppu_read8(address)
     }
 
-    fn ppu_write8(&mut self, address: Address, data: u8) -> Result<()> {
+    fn ppu_write8(&mut self, address: Address, data: u8) -> addressable::Result<()> {
         self.memory.ppu_write8(address, data)
     }
 }
