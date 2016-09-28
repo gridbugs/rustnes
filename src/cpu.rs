@@ -15,13 +15,80 @@ pub enum Error {
     MemoryError(addressable::Error),
 }
 
+pub struct StatusRegister {
+    negative: bool,
+    overflow: bool,
+    brk_command: bool,
+    decimal_mode: bool,
+    irq_disable: bool,
+    zero: bool,
+    carry: bool,
+}
+
+impl StatusRegister {
+    fn new() -> Self {
+        StatusRegister {
+            negative: false,
+            overflow: false,
+            brk_command: false,
+            decimal_mode: false,
+            irq_disable: false,
+            zero: false,
+            carry: false,
+        }
+    }
+}
+
+impl fmt::Display for StatusRegister {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.negative {
+            try!(write!(f, "N "));
+        } else {
+            try!(write!(f, "- "));
+        }
+        if self.overflow {
+            try!(write!(f, "V "));
+        } else {
+            try!(write!(f, "- "));
+        }
+        try!(write!(f, "_ "));
+        if self.brk_command {
+            try!(write!(f, "B "));
+        } else {
+            try!(write!(f, "- "));
+        }
+        if self.decimal_mode {
+            try!(write!(f, "D "));
+        } else {
+            try!(write!(f, "- "));
+        }
+        if self.irq_disable {
+            try!(write!(f, "I "));
+        } else {
+            try!(write!(f, "- "));
+        }
+        if self.zero {
+            try!(write!(f, "Z "));
+        } else {
+            try!(write!(f, "- "));
+        }
+        if self.carry {
+            try!(write!(f, "C "));
+        } else {
+            try!(write!(f, "- "));
+        }
+
+        Ok(())
+    }
+}
+
 pub struct RegisterFile {
     accumulator: u8,
     x_index: u8,
     y_index: u8,
     stack_pointer: u8,
     program_counter: u16,
-    status: u8,
+    status: StatusRegister,
 }
 
 impl RegisterFile {
@@ -32,7 +99,7 @@ impl RegisterFile {
             y_index: 0,
             stack_pointer: 0,
             program_counter: 0,
-            status: 0,
+            status: StatusRegister::new(),
         }
     }
 }
@@ -43,10 +110,10 @@ impl fmt::Display for RegisterFile {
         try!(writeln!(f, "---------"));
         try!(writeln!(f, "PC:     0x{:02x}", self.program_counter));
         try!(writeln!(f, "SP:     0x{:02x}", self.stack_pointer));
-        try!(writeln!(f, "Status: 0x{:02x}", self.status));
         try!(writeln!(f, "ACC:    0x{:02x}", self.accumulator));
         try!(writeln!(f, "X:      0x{:02x}", self.x_index));
         try!(writeln!(f, "Y:      0x{:02x}", self.y_index));
+        try!(writeln!(f, "Status: {}", self.status));
         Ok(())
     }
 }
