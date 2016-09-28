@@ -154,7 +154,8 @@ impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
     }
 
     pub fn init(&mut self) -> Result<()> {
-        self.registers.program_counter = try!(self.read16_le(RESET_VECTOR).map_err(Error::MemoryError));
+        self.registers.program_counter = try!(self.read16_le(RESET_VECTOR)
+            .map_err(Error::MemoryError));
 
         Ok(())
     }
@@ -200,7 +201,7 @@ impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
             MemoryAddressingMode::Absolute => {
                 let address = try!(self.fetch16_le());
                 self.read8(address).map_err(Error::MemoryError)
-            },
+            }
             _ => unimplemented!(),
         }
     }
@@ -210,7 +211,7 @@ impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
             MemoryAddressingMode::Absolute => {
                 let address = try!(self.fetch16_le());
                 self.write8(address, data).map_err(Error::MemoryError)
-            },
+            }
             _ => unimplemented!(),
         }
     }
@@ -235,59 +236,59 @@ impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
         match instruction {
             Instruction::SEI => {
                 self.set_disable_interrupt_status();
-            },
+            }
             Instruction::CLI => {
                 self.clear_disable_interrupt_status();
-            },
+            }
             Instruction::SED => {
                 self.set_decimal_mode();
-            },
+            }
             Instruction::CLD => {
                 self.clear_decimal_mode();
-            },
+            }
             Instruction::LDA(mode) => {
                 self.registers.accumulator = try!(self.addressing_mode_load(mode));
                 self.registers.set_arithmetic_flags_accumulator();
-            },
+            }
             Instruction::STA(mode) => {
                 let accumulator = self.registers.accumulator;
                 try!(self.addressing_mode_store(mode, accumulator));
-            },
+            }
             Instruction::LDX(mode) => {
                 self.registers.x_index = try!(self.addressing_mode_load(mode));
                 self.registers.set_arithmetic_flags_x_index();
-            },
+            }
             Instruction::STX(mode) => {
                 let x_index = self.registers.x_index;
                 try!(self.addressing_mode_store(mode, x_index));
-            },
+            }
             Instruction::LDY(mode) => {
                 self.registers.y_index = try!(self.addressing_mode_load(mode));
                 self.registers.set_arithmetic_flags_y_index();
-            },
+            }
             Instruction::STY(mode) => {
                 let y_index = self.registers.y_index;
                 try!(self.addressing_mode_store(mode, y_index));
-            },
+            }
             Instruction::TXS => {
                 self.registers.stack_pointer = self.registers.x_index;
-            },
+            }
             Instruction::BPL => {
                 if !self.registers.status.negative {
                     try!(self.relative_branch());
                 }
-            },
+            }
             Instruction::BEQ => {
                 if self.registers.status.zero {
                     try!(self.relative_branch());
                 }
-            },
+            }
             Instruction::AND(mode) => {
                 let accumulator = self.registers.accumulator;
                 let operand = try!(self.addressing_mode_load(mode));
                 self.registers.accumulator = accumulator & operand;
                 self.registers.set_arithmetic_flags_accumulator();
-            },
+            }
             _ => unimplemented!(),
         }
 

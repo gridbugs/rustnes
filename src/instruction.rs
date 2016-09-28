@@ -182,7 +182,7 @@ impl Instruction {
             1 => Instruction::JSR,
             2 => Instruction::RTI,
             3 => Instruction::RTS,
-            _ => return None
+            _ => return None,
         };
 
         Some(instruction)
@@ -257,22 +257,22 @@ impl Instruction {
                     2 => Self::decode_inter_register_instruction(aaa),
                     4 => Self::decode_branch(aaa),
                     6 => Self::decode_status_register_instruction(aaa),
-                    other => match aaa {
-                        0 => {
-                            unimplemented!()
-                        },
-                        1 => Instruction::BIT(try!(MemoryAddressingMode::decode_cc0(other))),
-                        2 => Instruction::JMP,
-                        3 => Instruction::JMPI,
-                        4 => Instruction::STY(try!(MemoryAddressingMode::decode_cc0(other))),
-                        5 => Instruction::LDY(try!(MemoryAddressingMode::decode_cc0(other))),
-                        6 => Instruction::CPY(try!(MemoryAddressingMode::decode_cc0(other))),
-                        7 => Instruction::CPX(try!(MemoryAddressingMode::decode_cc0(other))),
-                        _ => panic!("Incorrect mask in instruction decoding."),
+                    other => {
+                        match aaa {
+                            0 => unimplemented!(),
+                            1 => Instruction::BIT(try!(MemoryAddressingMode::decode_cc0(other))),
+                            2 => Instruction::JMP,
+                            3 => Instruction::JMPI,
+                            4 => Instruction::STY(try!(MemoryAddressingMode::decode_cc0(other))),
+                            5 => Instruction::LDY(try!(MemoryAddressingMode::decode_cc0(other))),
+                            6 => Instruction::CPY(try!(MemoryAddressingMode::decode_cc0(other))),
+                            7 => Instruction::CPX(try!(MemoryAddressingMode::decode_cc0(other))),
+                            _ => panic!("Incorrect mask in instruction decoding."),
+                        }
                     }
                 };
                 Ok(instruction)
-            },
+            }
             1 => {
                 let instruction = match aaa {
                     0 => Instruction::ORA(MemoryAddressingMode::decode_cc1(bbb)),
@@ -286,7 +286,7 @@ impl Instruction {
                     _ => panic!("Incorrect mask in instruction decoding."),
                 };
                 Ok(instruction)
-            },
+            }
             2 => {
                 if let Some(instruction) = match bbb {
                     2 => Self::decode_extra_inter_register_instructions_bbb2(aaa),
@@ -308,7 +308,7 @@ impl Instruction {
                     _ => panic!("Incorrect mask in instruction decoding."),
                 };
                 Ok(instruction)
-            },
+            }
             _ => Err(Error::InvalidOpcode),
         }
     }
