@@ -2,58 +2,89 @@ use image::NesImage;
 use cartridge;
 use nrom_cartridge::NromCartridge;
 use cpu_memory_layout::NesCpuMemoryLayout;
+use ppu_memory_layout::NesPpuMemoryLayout;
 use addressable;
-use addressable::{Address, CpuAddressable, PpuAddressable};
+use addressable::{Address, Addressable, PpuAddressable, CartridgeAddressable};
 use cpu;
 use cpu::{Cpu, RegisterFile};
+use ppu::Ppu;
+use ram::NesRam;
+use vram::NesVram;
 
-// A Nes is CpuAddressable for debugging purposes
-pub trait Nes: CpuAddressable + PpuAddressable {
+pub trait Nes: Addressable + PpuAddressable {
     fn init(&mut self) -> cpu::Result<()>;
     fn cpu_registers(&self) -> &RegisterFile;
     fn cpu_tick(&mut self) -> cpu::Result<()>;
 }
 
-pub struct NesWithCartridge<C: cartridge::Cartridge> {
-    pub cpu: Cpu<NesCpuMemoryLayout<C>>,
+pub struct NesWithCartridge<C: CartridgeAddressable> {
+    cartridge: C,
+    cpu: Cpu,
+    ppu: Ppu,
+    ram: NesRam,
+    vram: NesVram,
 }
 
-impl<C: cartridge::Cartridge> NesWithCartridge<C> {
+impl<C: CartridgeAddressable> NesWithCartridge<C> {
     pub fn new(cartridge: C) -> Self {
+        NesWithCartridge {
+            cartridge: cartridge,
+            cpu: Cpu::new(),
+            ppu: Ppu::new(),
+            ram: NesRam::new(),
+            vram: NesVram::new(),
+        }
+    }
 
-        NesWithCartridge { cpu: Cpu::new(NesCpuMemoryLayout::new(cartridge)) }
+    pub fn cpu_memory_layout(&mut self) -> NesCpuMemoryLayout<C> {
+        NesCpuMemoryLayout::new(&mut self.cartridge, &mut self.ppu.registers,
+                                &mut self.ram)
+    }
+
+    pub fn ppu_memory_layout(&mut self) -> NesPpuMemoryLayout<C> {
+        NesPpuMemoryLayout::new(&mut self.cartridge)
     }
 }
 
-impl<C: cartridge::Cartridge> CpuAddressable for NesWithCartridge<C> {
+impl<C: CartridgeAddressable> Addressable for NesWithCartridge<C> {
     fn read8(&mut self, address: Address) -> addressable::Result<u8> {
-        self.cpu.read8(address)
+        self.cpu_memory_layout().read8(address)
     }
 
     fn write8(&mut self, address: Address, data: u8) -> addressable::Result<()> {
-        self.cpu.write8(address, data)
+        self.cpu_memory_layout().write8(address, data)
     }
 }
 
-impl<C: cartridge::Cartridge> PpuAddressable for NesWithCartridge<C> {
+impl<C: CartridgeAddressable> PpuAddressable for NesWithCartridge<C> {
     fn ppu_read8(&mut self, address: Address) -> addressable::Result<u8> {
-        self.cpu.ppu_read8(address)
+        self.ppu_memory_layout().ppu_read8(address)
     }
 
     fn ppu_write8(&mut self, address: Address, data: u8) -> addressable::Result<()> {
-        self.cpu.ppu_write8(address, data)
+        self.ppu_memory_layout().ppu_write8(address, data)
     }
 }
 
-impl<C: cartridge::Cartridge> Nes for NesWithCartridge<C> {
+impl<C: CartridgeAddressable> Nes for NesWithCartridge<C> {
     fn init(&mut self) -> cpu::Result<()> {
-        self.cpu.init()
+        let mut cpu = self.cpu;
+        try!(cpu.init(&mut self.cpu_memory_layout()));
+        self.cpu = cpu;
+
+        Ok(())
     }
+
     fn cpu_registers(&self) -> &RegisterFile {
         &self.cpu.registers
     }
+
     fn cpu_tick(&mut self) -> cpu::Result<()> {
-        self.cpu.tick()
+        let mut cpu = self.cpu;
+        try!(cpu.tick(&mut self.cpu_memory_layout()));
+        self.cpu = cpu;
+
+        Ok(())
     }
 }
 

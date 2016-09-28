@@ -13,7 +13,7 @@ pub enum Error {
     UnimplementedWrite(Address),
 }
 
-pub trait CpuAddressable {
+pub trait Addressable {
     fn read8(&mut self, address: Address) -> Result<u8>;
     fn write8(&mut self, address: Address, data: u8) -> Result<()>;
 
@@ -38,3 +38,5 @@ pub trait PpuAddressable {
     fn ppu_read8(&mut self, address: Address) -> Result<u8>;
     fn ppu_write8(&mut self, address: Address, data: u8) -> Result<()>;
 }
+
+pub trait CartridgeAddressable: Addressable + PpuAddressable {}

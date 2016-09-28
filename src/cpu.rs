@@ -5,7 +5,7 @@ use addressable;
 use instruction;
 
 use instruction::{Instruction, MemoryAddressingMode};
-use addressable::{CpuAddressable, PpuAddressable, Address};
+use addressable::{Addressable, Address};
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -15,6 +15,7 @@ pub enum Error {
     MemoryError(addressable::Error),
 }
 
+#[derive(Clone, Copy)]
 pub struct StatusRegister {
     negative: bool,
     overflow: bool,
@@ -82,6 +83,7 @@ impl fmt::Display for StatusRegister {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct RegisterFile {
     accumulator: u8,
     x_index: u8,
@@ -138,34 +140,33 @@ impl fmt::Display for RegisterFile {
     }
 }
 
-pub struct Cpu<Memory: CpuAddressable + PpuAddressable> {
-    pub memory: Memory,
+#[derive(Clone, Copy)]
+pub struct Cpu {
     pub registers: RegisterFile,
 }
 
 const RESET_VECTOR: Address = 0xfffc;
 
-impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
-    pub fn new(memory: Memory) -> Self {
+impl Cpu {
+    pub fn new() -> Self {
         Cpu {
-            memory: memory,
             registers: RegisterFile::new(),
         }
     }
 
-    pub fn init(&mut self) -> Result<()> {
-        self.registers.program_counter = try!(self.read16_le(RESET_VECTOR)
+    pub fn init<Memory: Addressable>(&mut self, memory: &mut Memory) -> Result<()> {
+        self.registers.program_counter = try!(memory.read16_le(RESET_VECTOR)
             .map_err(Error::MemoryError));
 
         Ok(())
     }
 
-    pub fn tick(&mut self) -> Result<()> {
-        let opcode = try!(self.fetch8());
+    pub fn tick<Memory: Addressable>(&mut self, memory: &mut Memory) -> Result<()> {
+        let opcode = try!(self.fetch8(memory));
 
         let instruction = try!(Self::decode_instruction(opcode));
 
-        try!(self.emulate_instruction(instruction));
+        try!(self.emulate_instruction(instruction, memory));
 
         Ok(())
     }
@@ -177,52 +178,52 @@ impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
         }
     }
 
-    fn fetch8(&mut self) -> Result<u8> {
+    fn fetch8<Memory: Addressable>(&mut self, memory: &mut Memory) -> Result<u8> {
         let pc = self.registers.program_counter;
-        let opcode = try!(self.read8(pc).map_err(Error::MemoryError));
+        let opcode = try!(memory.read8(pc).map_err(Error::MemoryError));
 
         self.registers.program_counter = pc.wrapping_add(1);
 
         Ok(opcode)
     }
 
-    fn fetch16_le(&mut self) -> Result<u16> {
+    fn fetch16_le<Memory: Addressable>(&mut self, memory: &mut Memory) -> Result<u16> {
         let pc = self.registers.program_counter;
-        let opcode = try!(self.read16_le(pc).map_err(Error::MemoryError));
+        let opcode = try!(memory.read16_le(pc).map_err(Error::MemoryError));
 
         self.registers.program_counter = pc.wrapping_add(2);
 
         Ok(opcode)
     }
 
-    fn addressing_mode_load(&mut self, mode: MemoryAddressingMode) -> Result<u8> {
+    fn addressing_mode_load<Memory: Addressable>(&mut self, mode: MemoryAddressingMode, memory: &mut Memory) -> Result<u8> {
         match mode {
-            MemoryAddressingMode::Immediate => self.fetch8(),
+            MemoryAddressingMode::Immediate => self.fetch8(memory),
             MemoryAddressingMode::Absolute => {
-                let address = try!(self.fetch16_le());
-                self.read8(address).map_err(Error::MemoryError)
+                let address = try!(self.fetch16_le(memory));
+                memory.read8(address).map_err(Error::MemoryError)
             }
             _ => unimplemented!(),
         }
     }
 
-    fn addressing_mode_store(&mut self, mode: MemoryAddressingMode, data: u8) -> Result<()> {
+    fn addressing_mode_store<Memory: Addressable>(&mut self, mode: MemoryAddressingMode, data: u8, memory: &mut Memory) -> Result<()> {
         match mode {
             MemoryAddressingMode::Absolute => {
-                let address = try!(self.fetch16_le());
-                self.write8(address, data).map_err(Error::MemoryError)
+                let address = try!(self.fetch16_le(memory));
+                memory.write8(address, data).map_err(Error::MemoryError)
             }
             _ => unimplemented!(),
         }
     }
 
-    fn relative_branch(&mut self) -> Result<()> {
+    fn relative_branch<Memory: Addressable>(&mut self, memory: &mut Memory) -> Result<()> {
         // Casts allow negative signed 8-bit value to be correctly
         // added to unsigned 16-bit program counter.
         // u8 to i8 makes the offset signed.
         // i8 to i16 sign extends to 16 bits.
         // i16 to u16 turns sign extended value into unsigned.
-        let offset = ((try!(self.fetch8()) as i8) as i16) as u16;
+        let offset = ((try!(self.fetch8(memory)) as i8) as i16) as u16;
 
         let pc = self.registers.program_counter;
         self.registers.program_counter = pc.wrapping_add(offset);
@@ -230,7 +231,7 @@ impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
         Ok(())
     }
 
-    fn emulate_instruction(&mut self, instruction: Instruction) -> Result<()> {
+    fn emulate_instruction<Memory: Addressable>(&mut self, instruction: Instruction, memory: &mut Memory) -> Result<()> {
         println!("{:?}\n", instruction);
 
         match instruction {
@@ -247,45 +248,45 @@ impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
                 self.clear_decimal_mode();
             }
             Instruction::LDA(mode) => {
-                self.registers.accumulator = try!(self.addressing_mode_load(mode));
+                self.registers.accumulator = try!(self.addressing_mode_load(mode, memory));
                 self.registers.set_arithmetic_flags_accumulator();
             }
             Instruction::STA(mode) => {
                 let accumulator = self.registers.accumulator;
-                try!(self.addressing_mode_store(mode, accumulator));
+                try!(self.addressing_mode_store(mode, accumulator, memory));
             }
             Instruction::LDX(mode) => {
-                self.registers.x_index = try!(self.addressing_mode_load(mode));
+                self.registers.x_index = try!(self.addressing_mode_load(mode, memory));
                 self.registers.set_arithmetic_flags_x_index();
             }
             Instruction::STX(mode) => {
                 let x_index = self.registers.x_index;
-                try!(self.addressing_mode_store(mode, x_index));
+                try!(self.addressing_mode_store(mode, x_index, memory));
             }
             Instruction::LDY(mode) => {
-                self.registers.y_index = try!(self.addressing_mode_load(mode));
+                self.registers.y_index = try!(self.addressing_mode_load(mode, memory));
                 self.registers.set_arithmetic_flags_y_index();
             }
             Instruction::STY(mode) => {
                 let y_index = self.registers.y_index;
-                try!(self.addressing_mode_store(mode, y_index));
+                try!(self.addressing_mode_store(mode, y_index, memory));
             }
             Instruction::TXS => {
                 self.registers.stack_pointer = self.registers.x_index;
             }
             Instruction::BPL => {
                 if !self.registers.status.negative {
-                    try!(self.relative_branch());
+                    try!(self.relative_branch(memory));
                 }
             }
             Instruction::BEQ => {
                 if self.registers.status.zero {
-                    try!(self.relative_branch());
+                    try!(self.relative_branch(memory));
                 }
             }
             Instruction::AND(mode) => {
                 let accumulator = self.registers.accumulator;
-                let operand = try!(self.addressing_mode_load(mode));
+                let operand = try!(self.addressing_mode_load(mode, memory));
                 self.registers.accumulator = accumulator & operand;
                 self.registers.set_arithmetic_flags_accumulator();
             }
@@ -306,25 +307,5 @@ impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
     }
     fn clear_decimal_mode(&mut self) {
         self.registers.status.decimal_mode = false;
-    }
-}
-
-impl<Memory: CpuAddressable + PpuAddressable> CpuAddressable for Cpu<Memory> {
-    fn read8(&mut self, address: Address) -> addressable::Result<u8> {
-        self.memory.read8(address)
-    }
-
-    fn write8(&mut self, address: Address, data: u8) -> addressable::Result<()> {
-        self.memory.write8(address, data)
-    }
-}
-
-impl<Memory: CpuAddressable + PpuAddressable> PpuAddressable for Cpu<Memory> {
-    fn ppu_read8(&mut self, address: Address) -> addressable::Result<u8> {
-        self.memory.ppu_read8(address)
-    }
-
-    fn ppu_write8(&mut self, address: Address, data: u8) -> addressable::Result<()> {
-        self.memory.ppu_write8(address, data)
     }
 }

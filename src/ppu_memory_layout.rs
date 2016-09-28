@@ -1,5 +1,4 @@
 use addressable::{PpuAddressable, Address, AddressDiff, Result, Error};
-use palette::Palette;
 use cartridge::NAME_TABLE_START;
 
 const CARTRIDGE_START: Address = 0x0000;
@@ -14,30 +13,28 @@ const PALETTE_MIRROR_END: Address = 0x3fff;
 const NAME_TABLE_MIRROR_OFFSET: AddressDiff = NAME_TABLE_MIRROR_START - NAME_TABLE_START;
 const PALETTE_SIZE: AddressDiff = PALETTE_END - PALETTE_START + 1;
 
-pub struct NesPpuMemoryLayout<Cartridge: PpuAddressable> {
-    cartridge: Cartridge,
-    palette: Palette,
+pub struct NesPpuMemoryLayout<'a, C: 'a + PpuAddressable> {
+    cartridge: &'a mut C,
 }
 
-impl<Cartridge: PpuAddressable> NesPpuMemoryLayout<Cartridge> {
-    pub fn new(cartridge: Cartridge) -> Self {
+impl<'a, C: 'a + PpuAddressable> NesPpuMemoryLayout<'a, C> {
+    pub fn new(cartridge: &'a mut C) -> Self {
         NesPpuMemoryLayout {
             cartridge: cartridge,
-            palette: Palette::new(),
         }
     }
 }
 
-impl<Cartridge: PpuAddressable> PpuAddressable for NesPpuMemoryLayout<Cartridge> {
+impl<'a, C: 'a + PpuAddressable> PpuAddressable for NesPpuMemoryLayout<'a, C> {
     fn ppu_read8(&mut self, address: Address) -> Result<u8> {
         match address {
             CARTRIDGE_START...CARTRIDGE_END => self.cartridge.ppu_read8(address),
             NAME_TABLE_MIRROR_START...NAME_TABLE_MIRROR_END => {
                 self.cartridge.ppu_read8(address - NAME_TABLE_MIRROR_OFFSET)
             }
-            PALETTE_START...PALETTE_END => self.palette.ppu_read8(address - PALETTE_START),
+            PALETTE_START...PALETTE_END => unimplemented!(),
             PALETTE_MIRROR_START...PALETTE_MIRROR_END => {
-                self.palette.ppu_read8((address - PALETTE_MIRROR_START) % PALETTE_SIZE)
+                unimplemented!()
             }
             _ => Err(Error::BusErrorRead(address)),
         }
@@ -49,9 +46,9 @@ impl<Cartridge: PpuAddressable> PpuAddressable for NesPpuMemoryLayout<Cartridge>
             NAME_TABLE_MIRROR_START...NAME_TABLE_MIRROR_END => {
                 self.cartridge.ppu_write8(address - NAME_TABLE_MIRROR_OFFSET, data)
             }
-            PALETTE_START...PALETTE_END => self.palette.ppu_write8(address - PALETTE_START, data),
+            PALETTE_START...PALETTE_END => unimplemented!(),
             PALETTE_MIRROR_START...PALETTE_MIRROR_END => {
-                self.palette.ppu_write8((address - PALETTE_MIRROR_START) % PALETTE_SIZE, data)
+                unimplemented!()
             }
             _ => Err(Error::BusErrorWrite(address)),
         }

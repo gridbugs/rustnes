@@ -1,26 +1,26 @@
-use addressable::{CpuAddressable, PpuAddressable, Address, Result};
+use addressable::{Addressable, Address, Result};
 
-pub struct Ppu<Memory: PpuAddressable> {
-    memory: Memory,
-}
+pub struct PpuRegisterFile {}
 
-impl<Memory: PpuAddressable> Ppu<Memory> {
-    pub fn new(memory: Memory) -> Self {
-        Ppu { memory: memory }
+impl PpuRegisterFile {
+    fn new() -> Self {
+        PpuRegisterFile {}
     }
 }
 
-impl<Memory: PpuAddressable> PpuAddressable for Ppu<Memory> {
-    fn ppu_read8(&mut self, address: Address) -> Result<u8> {
-        self.memory.ppu_read8(address)
-    }
+pub struct Ppu {
+    pub registers: PpuRegisterFile,
+}
 
-    fn ppu_write8(&mut self, address: Address, data: u8) -> Result<()> {
-        self.memory.ppu_write8(address, data)
+impl Ppu {
+    pub fn new() -> Self {
+        Ppu {
+            registers: PpuRegisterFile::new(),
+        }
     }
 }
 
-impl<Memory: PpuAddressable> CpuAddressable for Ppu<Memory> {
+impl Addressable for PpuRegisterFile {
     fn read8(&mut self, _: Address) -> Result<u8> {
         println!("WARNING: Ignoring read from PPU register!");
         Ok(0) // TODO

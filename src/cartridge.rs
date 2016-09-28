@@ -1,7 +1,7 @@
 use std::result;
 
 use addressable;
-use addressable::{CpuAddressable, PpuAddressable, Address};
+use addressable::{Addressable, PpuAddressable, Address};
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -36,13 +36,6 @@ pub const PATTERN_TABLE_END: Address = 0x1fff;
 pub const NAME_TABLE_START: Address = 0x2000;
 pub const NAME_TABLE_END: Address = 0x2fff;
 
-pub trait Cartridge {
-    type CpuInterface: CpuInterface;
-    type PpuInterface: PpuInterface;
-
-    fn to_interfaces(self) -> (Self::CpuInterface, Self::PpuInterface);
-}
-
 pub trait CpuInterface {
     fn ram_read(&mut self, address: Address) -> addressable::Result<u8>;
     fn ram_write(&mut self, address: Address, data: u8) -> addressable::Result<()>;
@@ -59,7 +52,7 @@ pub trait PpuInterface {
     fn name_table_write(&mut self, address: Address, data: u8) -> addressable::Result<()>;
 }
 
-impl<C: CpuInterface> CpuAddressable for C {
+impl<C: CpuInterface> Addressable for C {
     fn read8(&mut self, address: Address) -> addressable::Result<u8> {
         match address {
             RAM_START...RAM_END => self.ram_read(address - RAM_START),

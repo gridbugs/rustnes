@@ -1,7 +1,7 @@
 use image::NesImage;
 use cartridge;
 use addressable;
-use addressable::{PpuAddressable, Address};
+use addressable::{PpuAddressable, Address, CartridgeAddressable};
 use vram::NesVram;
 use mirror::{Mirror, HorizontalMirror, VerticalMirror};
 use image::VideoArrangement;
@@ -21,6 +21,8 @@ pub struct NromCartridgeWithMirror<M: Mirror> {
     cpu_interface: NromCpuInterface,
     ppu_interface: NromPpuInterface<M>,
 }
+
+impl<M: Mirror> CartridgeAddressable for NromCartridgeWithMirror<M> {}
 
 pub enum NromCartridge {
     HorizontalMirroring(NromCartridgeWithMirror<HorizontalMirror>),
@@ -90,27 +92,18 @@ impl<M: Mirror> NromCartridgeWithMirror<M> {
     }
 }
 
-impl<M: Mirror> cartridge::Cartridge for NromCartridgeWithMirror<M> {
-    type CpuInterface = NromCpuInterface;
-    type PpuInterface = NromPpuInterface<M>;
-
-    fn to_interfaces(self) -> (Self::CpuInterface, Self::PpuInterface) {
-        (self.cpu_interface, self.ppu_interface)
-    }
-}
-
-impl cartridge::CpuInterface for NromCpuInterface {
+impl<M: Mirror> cartridge::CpuInterface for NromCartridgeWithMirror<M> {
     fn ram_read(&mut self, address: Address) -> addressable::Result<u8> {
-        Ok(self.ram[address as usize])
+        Ok(self.cpu_interface.ram[address as usize])
     }
 
     fn ram_write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
-        self.ram[address as usize] = data;
+        self.cpu_interface.ram[address as usize] = data;
         Ok(())
     }
 
     fn lower_rom_read(&mut self, address: Address) -> addressable::Result<u8> {
-        Ok(self.rom[address as usize])
+        Ok(self.cpu_interface.rom[address as usize])
     }
 
     fn lower_rom_write(&mut self, address: Address, _: u8) -> addressable::Result<()> {
@@ -118,7 +111,7 @@ impl cartridge::CpuInterface for NromCpuInterface {
     }
 
     fn upper_rom_read(&mut self, address: Address) -> addressable::Result<u8> {
-        Ok(self.rom[address as usize + cartridge::ROM_BANK_SIZE])
+        Ok(self.cpu_interface.rom[address as usize + cartridge::ROM_BANK_SIZE])
     }
 
     fn upper_rom_write(&mut self, address: Address, _: u8) -> addressable::Result<()> {
@@ -126,17 +119,17 @@ impl cartridge::CpuInterface for NromCpuInterface {
     }
 }
 
-impl<M: Mirror> cartridge::PpuInterface for NromPpuInterface<M> {
+impl<M: Mirror> cartridge::PpuInterface for NromCartridgeWithMirror<M> {
     fn pattern_table_read(&mut self, address: Address) -> addressable::Result<u8> {
-        Ok(self.rom[address as usize])
+        Ok(self.ppu_interface.rom[address as usize])
     }
     fn pattern_table_write(&mut self, address: Address, _: u8) -> addressable::Result<()> {
         Err(addressable::Error::IllegalWrite(address))
     }
     fn name_table_read(&mut self, address: Address) -> addressable::Result<u8> {
-        self.internal_ram.ppu_read8(M::mirror(address))
+        self.ppu_interface.internal_ram.ppu_read8(M::mirror(address))
     }
     fn name_table_write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
-        self.internal_ram.ppu_write8(M::mirror(address), data)
+        self.ppu_interface.internal_ram.ppu_write8(M::mirror(address), data)
     }
 }

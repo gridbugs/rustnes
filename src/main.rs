@@ -13,7 +13,6 @@ mod cpu_memory_layout;
 mod ram;
 mod vram;
 mod mirror;
-mod palette;
 mod addressable;
 mod cartridge;
 mod nrom_cartridge;
@@ -21,8 +20,6 @@ mod cpu;
 mod ppu;
 mod ppu_memory_layout;
 mod debug;
-mod io_ports;
-mod expansion;
 mod instruction;
 
 use debug::NesDebug;

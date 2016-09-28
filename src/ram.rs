@@ -1,4 +1,4 @@
-use addressable::{Address, CpuAddressable, Result};
+use addressable::{Address, Addressable, Result};
 
 pub const NES_RAM_NUM_BYTES: usize = 0x800;
 
@@ -12,7 +12,7 @@ impl NesRam {
     }
 }
 
-impl CpuAddressable for NesRam {
+impl Addressable for NesRam {
     fn read8(&mut self, address: Address) -> Result<u8> {
         Ok(self.ram[address as usize])
     }
