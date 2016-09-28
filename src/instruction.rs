@@ -67,6 +67,28 @@ impl MemoryAddressingMode {
             _ => panic!("Incorrect mask in instruction decoding."),
         }
     }
+
+    fn decode_cc2(bbb: u8) -> Result<Self> {
+        match bbb {
+            0 => Ok(MemoryAddressingMode::Immediate),
+            1 => Ok(MemoryAddressingMode::ZeroPage),
+            3 => Ok(MemoryAddressingMode::Absolute),
+            5 => Ok(MemoryAddressingMode::ZeroPageXIndexed),
+            7 => Ok(MemoryAddressingMode::AbsoluteXIndexed),
+            _ => Err(Error::InvalidAddressingModeForInstruction),
+        }
+    }
+
+    fn decode_cc2_x_to_y(bbb: u8) -> Result<Self> {
+        match bbb {
+            0 => Ok(MemoryAddressingMode::Immediate),
+            1 => Ok(MemoryAddressingMode::ZeroPage),
+            3 => Ok(MemoryAddressingMode::Absolute),
+            5 => Ok(MemoryAddressingMode::ZeroPageYIndexed),
+            7 => Ok(MemoryAddressingMode::AbsoluteYIndexed),
+            _ => Err(Error::InvalidAddressingModeForInstruction),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -84,10 +106,10 @@ pub enum Instruction {
     ROL(AddressingMode),
     LSR(AddressingMode),
     ROR(AddressingMode),
-    STX(AddressingMode),
-    LDX(AddressingMode),
-    DEC(AddressingMode),
-    INC(AddressingMode),
+    STX(MemoryAddressingMode),
+    LDX(MemoryAddressingMode),
+    DEC(MemoryAddressingMode),
+    INC(MemoryAddressingMode),
     BIT(MemoryAddressingMode),
     STY(MemoryAddressingMode),
     LDY(MemoryAddressingMode),
@@ -279,10 +301,10 @@ impl Instruction {
                     1 => Instruction::ROL(try!(AddressingMode::decode_cc2(bbb))),
                     2 => Instruction::LSR(try!(AddressingMode::decode_cc2(bbb))),
                     3 => Instruction::ROR(try!(AddressingMode::decode_cc2(bbb))),
-                    4 => Instruction::STX(try!(AddressingMode::decode_cc2(bbb))),
-                    5 => Instruction::LDX(try!(AddressingMode::decode_cc2(bbb))),
-                    6 => Instruction::DEC(try!(AddressingMode::decode_cc2(bbb))),
-                    7 => Instruction::INC(try!(AddressingMode::decode_cc2(bbb))),
+                    4 => Instruction::STX(try!(MemoryAddressingMode::decode_cc2_x_to_y(bbb))),
+                    5 => Instruction::LDX(try!(MemoryAddressingMode::decode_cc2_x_to_y(bbb))),
+                    6 => Instruction::DEC(try!(MemoryAddressingMode::decode_cc2(bbb))),
+                    7 => Instruction::INC(try!(MemoryAddressingMode::decode_cc2(bbb))),
                     _ => panic!("Incorrect mask in instruction decoding."),
                 };
                 Ok(instruction)

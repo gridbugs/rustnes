@@ -92,6 +92,9 @@ fn main() {
     }
 
     nes.init().expect("initialization failed");
-    println!("{}", nes.cpu_registers());
-    nes.cpu_tick().unwrap();
+
+    for _ in 0..12 {
+        println!("{}\n\n", nes.cpu_registers());
+        nes.cpu_tick().unwrap();
+    }
 }

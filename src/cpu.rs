@@ -4,7 +4,7 @@ use std::result;
 use addressable;
 use instruction;
 
-use instruction::{Instruction, AddressingMode};
+use instruction::{Instruction, MemoryAddressingMode};
 use addressable::{CpuAddressable, PpuAddressable, Address};
 
 pub type Result<T> = result::Result<T, Error>;
@@ -102,6 +102,26 @@ impl RegisterFile {
             status: StatusRegister::new(),
         }
     }
+
+    fn set_arithmetic_flags(&mut self, data: u8) {
+        self.status.negative = data & 0x80 != 0;
+        self.status.zero = data == 0;
+    }
+
+    fn set_arithmetic_flags_accumulator(&mut self) {
+        let accumulator = self.accumulator;
+        self.set_arithmetic_flags(accumulator);
+    }
+
+    fn set_arithmetic_flags_x_index(&mut self) {
+        let x_index = self.x_index;
+        self.set_arithmetic_flags(x_index);
+    }
+
+    fn set_arithmetic_flags_y_index(&mut self) {
+        let y_index = self.y_index;
+        self.set_arithmetic_flags(y_index);
+    }
 }
 
 impl fmt::Display for RegisterFile {
@@ -124,7 +144,6 @@ pub struct Cpu<Memory: CpuAddressable + PpuAddressable> {
 }
 
 const RESET_VECTOR: Address = 0xfffc;
-type InstructionOpcode = u8;
 
 impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
     pub fn new(memory: Memory) -> Self {
@@ -135,16 +154,13 @@ impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
     }
 
     pub fn init(&mut self) -> Result<()> {
-        self.registers.program_counter = match self.read16_le(RESET_VECTOR) {
-            Ok(pc) => pc,
-            Err(e) => return Err(Error::MemoryError(e)),
-        };
+        self.registers.program_counter = try!(self.read16_le(RESET_VECTOR).map_err(Error::MemoryError));
 
         Ok(())
     }
 
     pub fn tick(&mut self) -> Result<()> {
-        let opcode = try!(self.fetch_instruction());
+        let opcode = try!(self.fetch8());
 
         let instruction = try!(Self::decode_instruction(opcode));
 
@@ -153,29 +169,142 @@ impl<Memory: CpuAddressable + PpuAddressable> Cpu<Memory> {
         Ok(())
     }
 
-    fn decode_instruction(opcode: InstructionOpcode) -> Result<Instruction> {
+    fn decode_instruction(opcode: u8) -> Result<Instruction> {
         match Instruction::decode(opcode) {
             Ok(i) => Ok(i),
             Err(e) => Err(Error::InstructionError(e)),
         }
     }
 
-    fn fetch_instruction(&mut self) -> Result<InstructionOpcode> {
+    fn fetch8(&mut self) -> Result<u8> {
         let pc = self.registers.program_counter;
-        let opcode = match self.read8(pc) {
-            Ok(o) => o,
-            Err(e) => return Err(Error::MemoryError(e)),
-        };
+        let opcode = try!(self.read8(pc).map_err(Error::MemoryError));
 
         self.registers.program_counter = pc.wrapping_add(1);
 
         Ok(opcode)
     }
 
-    fn emulate_instruction(&mut self, instruction: Instruction) -> Result<()> {
-        println!("{:?}", instruction);
+    fn fetch16_le(&mut self) -> Result<u16> {
+        let pc = self.registers.program_counter;
+        let opcode = try!(self.read16_le(pc).map_err(Error::MemoryError));
+
+        self.registers.program_counter = pc.wrapping_add(2);
+
+        Ok(opcode)
+    }
+
+    fn addressing_mode_load(&mut self, mode: MemoryAddressingMode) -> Result<u8> {
+        match mode {
+            MemoryAddressingMode::Immediate => self.fetch8(),
+            MemoryAddressingMode::Absolute => {
+                let address = try!(self.fetch16_le());
+                self.read8(address).map_err(Error::MemoryError)
+            },
+            _ => unimplemented!(),
+        }
+    }
+
+    fn addressing_mode_store(&mut self, mode: MemoryAddressingMode, data: u8) -> Result<()> {
+        match mode {
+            MemoryAddressingMode::Absolute => {
+                let address = try!(self.fetch16_le());
+                self.write8(address, data).map_err(Error::MemoryError)
+            },
+            _ => unimplemented!(),
+        }
+    }
+
+    fn relative_branch(&mut self) -> Result<()> {
+        // Casts allow negative signed 8-bit value to be correctly
+        // added to unsigned 16-bit program counter.
+        // u8 to i8 makes the offset signed.
+        // i8 to i16 sign extends to 16 bits.
+        // i16 to u16 turns sign extended value into unsigned.
+        let offset = ((try!(self.fetch8()) as i8) as i16) as u16;
+
+        let pc = self.registers.program_counter;
+        self.registers.program_counter = pc.wrapping_add(offset);
 
         Ok(())
+    }
+
+    fn emulate_instruction(&mut self, instruction: Instruction) -> Result<()> {
+        println!("{:?}\n", instruction);
+
+        match instruction {
+            Instruction::SEI => {
+                self.set_disable_interrupt_status();
+            },
+            Instruction::CLI => {
+                self.clear_disable_interrupt_status();
+            },
+            Instruction::SED => {
+                self.set_decimal_mode();
+            },
+            Instruction::CLD => {
+                self.clear_decimal_mode();
+            },
+            Instruction::LDA(mode) => {
+                self.registers.accumulator = try!(self.addressing_mode_load(mode));
+                self.registers.set_arithmetic_flags_accumulator();
+            },
+            Instruction::STA(mode) => {
+                let accumulator = self.registers.accumulator;
+                try!(self.addressing_mode_store(mode, accumulator));
+            },
+            Instruction::LDX(mode) => {
+                self.registers.x_index = try!(self.addressing_mode_load(mode));
+                self.registers.set_arithmetic_flags_x_index();
+            },
+            Instruction::STX(mode) => {
+                let x_index = self.registers.x_index;
+                try!(self.addressing_mode_store(mode, x_index));
+            },
+            Instruction::LDY(mode) => {
+                self.registers.y_index = try!(self.addressing_mode_load(mode));
+                self.registers.set_arithmetic_flags_y_index();
+            },
+            Instruction::STY(mode) => {
+                let y_index = self.registers.y_index;
+                try!(self.addressing_mode_store(mode, y_index));
+            },
+            Instruction::TXS => {
+                self.registers.stack_pointer = self.registers.x_index;
+            },
+            Instruction::BPL => {
+                if !self.registers.status.negative {
+                    try!(self.relative_branch());
+                }
+            },
+            Instruction::BEQ => {
+                if self.registers.status.zero {
+                    try!(self.relative_branch());
+                }
+            },
+            Instruction::AND(mode) => {
+                let accumulator = self.registers.accumulator;
+                let operand = try!(self.addressing_mode_load(mode));
+                self.registers.accumulator = accumulator & operand;
+                self.registers.set_arithmetic_flags_accumulator();
+            },
+            _ => unimplemented!(),
+        }
+
+        Ok(())
+    }
+
+    fn set_disable_interrupt_status(&mut self) {
+        self.registers.status.irq_disable = true;
+    }
+    fn clear_disable_interrupt_status(&mut self) {
+        self.registers.status.irq_disable = false;
+    }
+    fn set_decimal_mode(&mut self) {
+        self.registers.status.decimal_mode = true;
+    }
+    fn clear_decimal_mode(&mut self) {
+        self.registers.status.decimal_mode = false;
     }
 }
 
