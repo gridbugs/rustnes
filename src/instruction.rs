@@ -176,7 +176,7 @@ impl Instruction {
         }
     }
 
-    fn decode_iqr_or_function_instruction(aaa: u8) -> Option<Self> {
+    fn decode_irq_or_function_instruction(aaa: u8) -> Option<Self> {
         let instruction = match aaa {
             0 => Instruction::BRK,
             1 => Instruction::JSR,
@@ -247,7 +247,7 @@ impl Instruction {
         match cc {
             0 => {
                 if let Some(instruction) = match bbb {
-                    0 => Self::decode_iqr_or_function_instruction(aaa),
+                    0 => Self::decode_irq_or_function_instruction(aaa),
                     _ => None,
                 } {
                     return Ok(instruction);
@@ -259,7 +259,6 @@ impl Instruction {
                     6 => Self::decode_status_register_instruction(aaa),
                     other => {
                         match aaa {
-                            0 => unimplemented!(),
                             1 => Instruction::BIT(try!(MemoryAddressingMode::decode_cc0(other))),
                             2 => Instruction::JMP,
                             3 => Instruction::JMPI,
@@ -267,7 +266,7 @@ impl Instruction {
                             5 => Instruction::LDY(try!(MemoryAddressingMode::decode_cc0(other))),
                             6 => Instruction::CPY(try!(MemoryAddressingMode::decode_cc0(other))),
                             7 => Instruction::CPX(try!(MemoryAddressingMode::decode_cc0(other))),
-                            _ => panic!("Incorrect mask in instruction decoding."),
+                            _ => return Err(Error::InvalidOpcode),
                         }
                     }
                 };
