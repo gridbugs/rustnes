@@ -10,6 +10,7 @@ mod nes;
 mod image;
 mod ines;
 mod cpu_memory_layout;
+mod cpu_memory_layout_change;
 mod ram;
 mod vram;
 mod mirror;

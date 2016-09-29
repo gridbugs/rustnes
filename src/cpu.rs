@@ -149,9 +149,7 @@ const RESET_VECTOR: Address = 0xfffc;
 
 impl Cpu {
     pub fn new() -> Self {
-        Cpu {
-            registers: RegisterFile::new(),
-        }
+        Cpu { registers: RegisterFile::new() }
     }
 
     pub fn init<Memory: Addressable>(&mut self, memory: &mut Memory) -> Result<()> {
@@ -196,7 +194,10 @@ impl Cpu {
         Ok(opcode)
     }
 
-    fn addressing_mode_load<Memory: Addressable>(&mut self, mode: MemoryAddressingMode, memory: &mut Memory) -> Result<u8> {
+    fn addressing_mode_load<Memory: Addressable>(&mut self,
+                                                 mode: MemoryAddressingMode,
+                                                 memory: &mut Memory)
+                                                 -> Result<u8> {
         match mode {
             MemoryAddressingMode::Immediate => self.fetch8(memory),
             MemoryAddressingMode::Absolute => {
@@ -207,7 +208,11 @@ impl Cpu {
         }
     }
 
-    fn addressing_mode_store<Memory: Addressable>(&mut self, mode: MemoryAddressingMode, data: u8, memory: &mut Memory) -> Result<()> {
+    fn addressing_mode_store<Memory: Addressable>(&mut self,
+                                                  mode: MemoryAddressingMode,
+                                                  data: u8,
+                                                  memory: &mut Memory)
+                                                  -> Result<()> {
         match mode {
             MemoryAddressingMode::Absolute => {
                 let address = try!(self.fetch16_le(memory));
@@ -231,7 +236,10 @@ impl Cpu {
         Ok(())
     }
 
-    fn emulate_instruction<Memory: Addressable>(&mut self, instruction: Instruction, memory: &mut Memory) -> Result<()> {
+    fn emulate_instruction<Memory: Addressable>(&mut self,
+                                                instruction: Instruction,
+                                                memory: &mut Memory)
+                                                -> Result<()> {
         println!("{:?}\n", instruction);
 
         match instruction {

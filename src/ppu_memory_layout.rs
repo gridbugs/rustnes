@@ -19,9 +19,7 @@ pub struct NesPpuMemoryLayout<'a, C: 'a + PpuAddressable> {
 
 impl<'a, C: 'a + PpuAddressable> NesPpuMemoryLayout<'a, C> {
     pub fn new(cartridge: &'a mut C) -> Self {
-        NesPpuMemoryLayout {
-            cartridge: cartridge,
-        }
+        NesPpuMemoryLayout { cartridge: cartridge }
     }
 }
 
@@ -33,9 +31,7 @@ impl<'a, C: 'a + PpuAddressable> PpuAddressable for NesPpuMemoryLayout<'a, C> {
                 self.cartridge.ppu_read8(address - NAME_TABLE_MIRROR_OFFSET)
             }
             PALETTE_START...PALETTE_END => unimplemented!(),
-            PALETTE_MIRROR_START...PALETTE_MIRROR_END => {
-                unimplemented!()
-            }
+            PALETTE_MIRROR_START...PALETTE_MIRROR_END => unimplemented!(),
             _ => Err(Error::BusErrorRead(address)),
         }
     }
@@ -47,9 +43,7 @@ impl<'a, C: 'a + PpuAddressable> PpuAddressable for NesPpuMemoryLayout<'a, C> {
                 self.cartridge.ppu_write8(address - NAME_TABLE_MIRROR_OFFSET, data)
             }
             PALETTE_START...PALETTE_END => unimplemented!(),
-            PALETTE_MIRROR_START...PALETTE_MIRROR_END => {
-                unimplemented!()
-            }
+            PALETTE_MIRROR_START...PALETTE_MIRROR_END => unimplemented!(),
             _ => Err(Error::BusErrorWrite(address)),
         }
     }

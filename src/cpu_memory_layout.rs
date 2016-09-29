@@ -29,8 +29,10 @@ pub struct NesCpuMemoryLayout<'a, C: 'a + Addressable> {
 }
 
 impl<'a, C: 'a + Addressable> NesCpuMemoryLayout<'a, C> {
-    pub fn new(cartridge: &'a mut C, ppu_registers: &'a mut PpuRegisterFile,
-               ram : &'a mut NesRam) -> Self {
+    pub fn new(cartridge: &'a mut C,
+               ppu_registers: &'a mut PpuRegisterFile,
+               ram: &'a mut NesRam)
+               -> Self {
 
         NesCpuMemoryLayout {
             cartridge: cartridge,
@@ -51,8 +53,31 @@ impl<'a, C: 'a + Addressable> Addressable for NesCpuMemoryLayout<'a, C> {
             _ => Err(Error::UnimplementedRead(address)),
         }
     }
+    fn read8_pure(&mut self, address: Address) -> Result<u8> {
+        match address {
+            RAM_START...RAM_MIRROR_END => self.ram.read8_pure(address % RAM_SIZE),
+            PPU_REGISTER_START...PPU_REGISTER_MIRROR_END => {
+                self.ppu_registers.read8_pure((address - PPU_REGISTER_START) % PPU_REGISTER_SIZE)
+            }
+            CARTRIDGE_START...CARTRIDGE_END => self.cartridge.read8_pure(address - CARTRIDGE_START),
+            _ => Err(Error::UnimplementedRead(address)),
+        }
+    }
+    fn read8_side_effects(&mut self, address: Address) -> Result<()> {
+        match address {
+            RAM_START...RAM_MIRROR_END => self.ram.read8_side_effects(address % RAM_SIZE),
+            PPU_REGISTER_START...PPU_REGISTER_MIRROR_END => {
+                self.ppu_registers
+                    .read8_side_effects((address - PPU_REGISTER_START) % PPU_REGISTER_SIZE)
+            }
+            CARTRIDGE_START...CARTRIDGE_END => {
+                self.cartridge.read8_side_effects(address - CARTRIDGE_START)
+            }
+            _ => Err(Error::UnimplementedRead(address)),
+        }
+    }
     fn write8(&mut self, address: Address, data: u8) -> Result<()> {
-       match address {
+        match address {
             RAM_START...RAM_MIRROR_END => self.ram.write8(address % RAM_SIZE, data),
             PPU_REGISTER_START...PPU_REGISTER_MIRROR_END => {
                 self.ppu_registers.write8((address - PPU_REGISTER_START) % PPU_REGISTER_SIZE, data)

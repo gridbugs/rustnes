@@ -3,6 +3,7 @@ use cartridge;
 use nrom_cartridge::NromCartridge;
 use cpu_memory_layout::NesCpuMemoryLayout;
 use ppu_memory_layout::NesPpuMemoryLayout;
+use cpu_memory_layout_change::{MemoryWrite, NesCpuMemoryLayoutBuffer};
 use addressable;
 use addressable::{Address, Addressable, PpuAddressable, CartridgeAddressable};
 use cpu;
@@ -23,6 +24,8 @@ pub struct NesWithCartridge<C: CartridgeAddressable> {
     ppu: Ppu,
     ram: NesRam,
     vram: NesVram,
+    write_buffer: Vec<MemoryWrite>,
+    read_buffer: Vec<Address>,
 }
 
 impl<C: CartridgeAddressable> NesWithCartridge<C> {
@@ -33,16 +36,25 @@ impl<C: CartridgeAddressable> NesWithCartridge<C> {
             ppu: Ppu::new(),
             ram: NesRam::new(),
             vram: NesVram::new(),
+            write_buffer: Vec::new(),
+            read_buffer: Vec::new(),
         }
     }
 
     pub fn cpu_memory_layout(&mut self) -> NesCpuMemoryLayout<C> {
-        NesCpuMemoryLayout::new(&mut self.cartridge, &mut self.ppu.registers,
-                                &mut self.ram)
+        NesCpuMemoryLayout::new(&mut self.cartridge, &mut self.ppu.registers, &mut self.ram)
     }
 
     pub fn ppu_memory_layout(&mut self) -> NesPpuMemoryLayout<C> {
         NesPpuMemoryLayout::new(&mut self.cartridge)
+    }
+
+    pub fn cpu_memory_layout_buffer(&mut self) -> NesCpuMemoryLayoutBuffer<C> {
+        NesCpuMemoryLayoutBuffer::new(NesCpuMemoryLayout::new(&mut self.cartridge,
+                                                              &mut self.ppu.registers,
+                                                              &mut self.ram),
+                                      &mut self.write_buffer,
+                                      &mut self.read_buffer)
     }
 }
 
@@ -81,7 +93,13 @@ impl<C: CartridgeAddressable> Nes for NesWithCartridge<C> {
 
     fn cpu_tick(&mut self) -> cpu::Result<()> {
         let mut cpu = self.cpu;
-        try!(cpu.tick(&mut self.cpu_memory_layout()));
+
+        {
+            let mut buffer = self.cpu_memory_layout_buffer();
+            try!(cpu.tick(&mut buffer));
+            try!(buffer.apply().map_err(cpu::Error::MemoryError));
+        }
+
         self.cpu = cpu;
 
         Ok(())
