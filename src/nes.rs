@@ -86,7 +86,10 @@ impl<C: CartridgeAddressable> NesWithCartridge<C> {
     }
 }
 
-fn emulate_cpu<A: Addressable>(mut cpu: Cpu, memory: &mut NesCpuMemoryLayoutBuffer<A>, num_instructions: usize) -> cpu::Result<()> {
+fn emulate_cpu<A: Addressable>(mut cpu: Cpu,
+                               memory: &mut NesCpuMemoryLayoutBuffer<A>,
+                               num_instructions: usize)
+                               -> cpu::Result<()> {
 
     for _ in 0..num_instructions {
 
@@ -98,7 +101,9 @@ fn emulate_cpu<A: Addressable>(mut cpu: Cpu, memory: &mut NesCpuMemoryLayoutBuff
     Ok(())
 }
 
-fn emulate_cpu_instruction<A: Addressable>(mut cpu: Cpu, memory: &mut NesCpuMemoryLayoutBuffer<A>) -> cpu::Result<(Cpu)> {
+fn emulate_cpu_instruction<A: Addressable>(mut cpu: Cpu,
+                                           memory: &mut NesCpuMemoryLayoutBuffer<A>)
+                                           -> cpu::Result<(Cpu)> {
     try!(cpu.tick(memory));
     try!(memory.apply().map_err(cpu::Error::MemoryError));
 

@@ -6,7 +6,8 @@ use getopts::Options;
 use std::env;
 use std::fs;
 
-#[macro_use] mod macros;
+#[macro_use]
+mod macros;
 
 mod nes;
 mod image;

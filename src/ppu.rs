@@ -71,7 +71,7 @@ impl Addressable for PpuRegisterFile {
                 self.status &= !STATUS_VBLANK;
 
                 Ok(value)
-            },
+            }
             _ => unimplemented!(),
         }
     }
@@ -92,7 +92,7 @@ impl Addressable for PpuRegisterFile {
             STATUS => {
                 self.status &= STATUS_VBLANK;
                 Ok(())
-            },
+            }
             _ => unimplemented!(),
         }
     }
