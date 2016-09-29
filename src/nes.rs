@@ -16,6 +16,7 @@ pub trait Nes: Addressable + PpuAddressable {
     fn init(&mut self) -> cpu::Result<()>;
     fn cpu_registers(&self) -> &RegisterFile;
     fn cpu_tick(&mut self) -> cpu::Result<()>;
+    fn emulate_frame(&mut self) -> cpu::Result<()>;
 }
 
 pub struct NesWithCartridge<C: CartridgeAddressable> {
@@ -56,6 +57,52 @@ impl<C: CartridgeAddressable> NesWithCartridge<C> {
                                       &mut self.write_buffer,
                                       &mut self.read_buffer)
     }
+
+    fn vblank_interval(&mut self) -> cpu::Result<()> {
+        println!("-------------- VBLANK --------------");
+
+        self.ppu.vblank_start();
+
+        try!(self.emulate_cpu(1000));
+
+        Ok(())
+    }
+
+    fn render_interval(&mut self) -> cpu::Result<()> {
+        println!("-------------- RENDER --------------");
+
+        self.ppu.vblank_end();
+
+        Ok(())
+    }
+
+    fn emulate_cpu(&mut self, num_instructions: usize) -> cpu::Result<()> {
+        let cpu = self.cpu;
+
+        try!(emulate_cpu(cpu, &mut self.cpu_memory_layout_buffer(), num_instructions));
+
+        self.cpu = cpu;
+        Ok(())
+    }
+}
+
+fn emulate_cpu<A: Addressable>(mut cpu: Cpu, memory: &mut NesCpuMemoryLayoutBuffer<A>, num_instructions: usize) -> cpu::Result<()> {
+
+    for _ in 0..num_instructions {
+
+        println!("{}", cpu.registers);
+
+        cpu = try!(emulate_cpu_instruction(cpu, memory));
+    }
+
+    Ok(())
+}
+
+fn emulate_cpu_instruction<A: Addressable>(mut cpu: Cpu, memory: &mut NesCpuMemoryLayoutBuffer<A>) -> cpu::Result<(Cpu)> {
+    try!(cpu.tick(memory));
+    try!(memory.apply().map_err(cpu::Error::MemoryError));
+
+    Ok(cpu)
 }
 
 impl<C: CartridgeAddressable> Addressable for NesWithCartridge<C> {
@@ -101,6 +148,13 @@ impl<C: CartridgeAddressable> Nes for NesWithCartridge<C> {
         }
 
         self.cpu = cpu;
+
+        Ok(())
+    }
+
+    fn emulate_frame(&mut self) -> cpu::Result<()> {
+        try!(self.vblank_interval());
+        try!(self.render_interval());
 
         Ok(())
     }

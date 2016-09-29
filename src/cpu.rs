@@ -222,18 +222,16 @@ impl Cpu {
         }
     }
 
-    fn relative_branch<Memory: Addressable>(&mut self, memory: &mut Memory) -> Result<()> {
+    fn relative_branch(&mut self, offset: u8) {
         // Casts allow negative signed 8-bit value to be correctly
         // added to unsigned 16-bit program counter.
         // u8 to i8 makes the offset signed.
         // i8 to i16 sign extends to 16 bits.
         // i16 to u16 turns sign extended value into unsigned.
-        let offset = ((try!(self.fetch8(memory)) as i8) as i16) as u16;
+        let offset = ((offset as i8) as i16) as u16;
 
         let pc = self.registers.program_counter;
         self.registers.program_counter = pc.wrapping_add(offset);
-
-        Ok(())
     }
 
     fn emulate_instruction<Memory: Addressable>(&mut self,
@@ -283,13 +281,15 @@ impl Cpu {
                 self.registers.stack_pointer = self.registers.x_index;
             }
             Instruction::BPL => {
+                let offset = try!(self.fetch8(memory));
                 if !self.registers.status.negative {
-                    try!(self.relative_branch(memory));
+                    self.relative_branch(offset);
                 }
             }
             Instruction::BEQ => {
+                let offset = try!(self.fetch8(memory));
                 if self.registers.status.zero {
-                    try!(self.relative_branch(memory));
+                    self.relative_branch(offset);
                 }
             }
             Instruction::AND(mode) => {

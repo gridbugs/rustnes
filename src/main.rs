@@ -6,6 +6,8 @@ use getopts::Options;
 use std::env;
 use std::fs;
 
+#[macro_use] mod macros;
+
 mod nes;
 mod image;
 mod ines;
@@ -91,8 +93,5 @@ fn main() {
 
     nes.init().expect("initialization failed");
 
-    for _ in 0..12 {
-        println!("{}\n\n", nes.cpu_registers());
-        nes.cpu_tick().unwrap();
-    }
+    nes.emulate_frame().unwrap();
 }

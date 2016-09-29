@@ -9,6 +9,7 @@ pub enum Error {
     BusErrorRead(Address),
     BusErrorWrite(Address),
     IllegalWrite(Address),
+    IllegalRead(Address),
     UnimplementedRead(Address),
     UnimplementedWrite(Address),
 }

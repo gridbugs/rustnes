@@ -5,7 +5,7 @@ pub type Result<T> = result::Result<T, Error>;
 #[derive(Debug)]
 pub enum Error {
     InvalidAddressingModeForInstruction,
-    InvalidOpcode,
+    InvalidOpcode(u8),
 }
 
 #[derive(Debug)]
@@ -266,7 +266,7 @@ impl Instruction {
                             5 => Instruction::LDY(try!(MemoryAddressingMode::decode_cc0(other))),
                             6 => Instruction::CPY(try!(MemoryAddressingMode::decode_cc0(other))),
                             7 => Instruction::CPX(try!(MemoryAddressingMode::decode_cc0(other))),
-                            _ => return Err(Error::InvalidOpcode),
+                            _ => return Err(Error::InvalidOpcode(encoded)),
                         }
                     }
                 };
@@ -308,7 +308,7 @@ impl Instruction {
                 };
                 Ok(instruction)
             }
-            _ => Err(Error::InvalidOpcode),
+            _ => Err(Error::InvalidOpcode(encoded)),
         }
     }
 }
