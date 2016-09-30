@@ -43,7 +43,7 @@ impl<C: CartridgeAddressable> NesWithCartridge<C> {
     }
 
     pub fn cpu_memory_layout(&mut self) -> NesCpuMemoryLayout<C> {
-        NesCpuMemoryLayout::new(&mut self.cartridge, &mut self.ppu.registers, &mut self.ram)
+        NesCpuMemoryLayout::new(&mut self.cartridge, &mut self.ppu, &mut self.ram)
     }
 
     pub fn ppu_memory_layout(&mut self) -> NesPpuMemoryLayout<C> {
@@ -52,7 +52,7 @@ impl<C: CartridgeAddressable> NesWithCartridge<C> {
 
     pub fn cpu_memory_layout_buffer(&mut self) -> NesCpuMemoryLayoutBuffer<C> {
         NesCpuMemoryLayoutBuffer::new(NesCpuMemoryLayout::new(&mut self.cartridge,
-                                                              &mut self.ppu.registers,
+                                                              &mut self.ppu,
                                                               &mut self.ram),
                                       &mut self.write_buffer,
                                       &mut self.read_buffer)

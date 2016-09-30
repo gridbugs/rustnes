@@ -61,14 +61,14 @@ impl Ppu {
     }
 }
 
-impl Addressable for PpuRegisterFile {
+impl Addressable for Ppu {
     fn read8(&mut self, address: Address) -> Result<u8> {
         match address {
             CONTROLLER => Err(Error::IllegalRead(address)),
             MASK => Err(Error::IllegalRead(address)),
             STATUS => {
-                let value = self.status;
-                self.status &= !STATUS_VBLANK;
+                let value = self.registers.status;
+                self.registers.status &= !STATUS_VBLANK;
 
                 Ok(value)
             }
@@ -80,7 +80,7 @@ impl Addressable for PpuRegisterFile {
         match address {
             CONTROLLER => Err(Error::IllegalRead(address)),
             MASK => Err(Error::IllegalRead(address)),
-            STATUS => Ok(self.status),
+            STATUS => Ok(self.registers.status),
             _ => unimplemented!(),
         }
     }
@@ -90,7 +90,7 @@ impl Addressable for PpuRegisterFile {
             CONTROLLER => Err(Error::IllegalRead(address)),
             MASK => Err(Error::IllegalRead(address)),
             STATUS => {
-                self.status &= STATUS_VBLANK;
+                self.registers.status &= STATUS_VBLANK;
                 Ok(())
             }
             _ => unimplemented!(),
@@ -99,8 +99,8 @@ impl Addressable for PpuRegisterFile {
 
     fn write8(&mut self, address: Address, data: u8) -> Result<()> {
         match address {
-            CONTROLLER => self.controller = data,
-            MASK => self.mask = data,
+            CONTROLLER => self.registers.controller = data,
+            MASK => self.registers.mask = data,
             STATUS => return Err(Error::IllegalWrite(address)),
             _ => unimplemented!(),
         }
