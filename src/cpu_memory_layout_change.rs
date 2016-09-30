@@ -40,7 +40,8 @@ impl<'a, C: 'a + Addressable> NesCpuMemoryLayoutBuffer<'a, C> {
 impl<'a, C: 'a + Addressable> Addressable for NesCpuMemoryLayoutBuffer<'a, C> {
     fn read8(&mut self, address: Address) -> Result<u8> {
         self.reads.push(address);
-        self.memory.read8_pure(address)
+        let ret = try!(self.memory.read8_pure(address));
+        Ok(ret)
     }
     fn write8(&mut self, address: Address, data: u8) -> Result<()> {
         self.writes.push(MemoryWrite {

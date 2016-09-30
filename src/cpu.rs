@@ -4,7 +4,7 @@ use std::result;
 use addressable;
 use instruction;
 
-use instruction::{Instruction, MemoryAddressingMode};
+use instruction::{Instruction, MemoryAddressingMode, AddressingMode};
 use addressable::{Addressable, Address};
 
 pub type Result<T> = result::Result<T, Error>;
@@ -13,6 +13,9 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Error {
     InstructionError(instruction::Error),
     MemoryError(addressable::Error),
+    UnimplementedInstruction(Instruction),
+    UnimplementedMemoryAddressingMode(MemoryAddressingMode),
+    UnimplementedAddressingMode(AddressingMode),
 }
 
 #[derive(Clone, Copy)]
@@ -36,6 +39,22 @@ impl StatusRegister {
             irq_disable: false,
             zero: false,
             carry: false,
+        }
+    }
+
+    fn compare(&mut self, register: u8, memory: u8) {
+        if register == memory {
+            self.negative = false;
+            self.zero = true;
+            self.carry = true;
+        } else if register < memory {
+            self.negative = true;
+            self.zero = false;
+            self.carry = false;
+        } else {
+            self.negative = false;
+            self.zero = false;
+            self.carry = true;
         }
     }
 }
@@ -146,6 +165,7 @@ pub struct Cpu {
 }
 
 const RESET_VECTOR: Address = 0xfffc;
+const STACK_PAGE_BOTTOM: Address = 0x0100;
 
 impl Cpu {
     pub fn new() -> Self {
@@ -200,11 +220,23 @@ impl Cpu {
                                                  -> Result<u8> {
         match mode {
             MemoryAddressingMode::Immediate => self.fetch8(memory),
+            MemoryAddressingMode::ZeroPage => {
+                let address = try!(self.fetch8(memory)) as u16;
+                memory.read8(address).map_err(Error::MemoryError)
+            }
             MemoryAddressingMode::Absolute => {
                 let address = try!(self.fetch16_le(memory));
                 memory.read8(address).map_err(Error::MemoryError)
             }
-            _ => unimplemented!(),
+            MemoryAddressingMode::AbsoluteXIndexed => {
+                let address = try!(self.fetch16_le(memory)).wrapping_add(self.registers.x_index as u16);
+                memory.read8(address).map_err(Error::MemoryError)
+            }
+            MemoryAddressingMode::AbsoluteYIndexed => {
+                let address = try!(self.fetch16_le(memory)).wrapping_add(self.registers.y_index as u16);
+                memory.read8(address).map_err(Error::MemoryError)
+            }
+            _ => Err(Error::UnimplementedMemoryAddressingMode(mode)),
         }
     }
 
@@ -214,10 +246,38 @@ impl Cpu {
                                                   memory: &mut Memory)
                                                   -> Result<()> {
         match mode {
+            MemoryAddressingMode::ZeroPage => {
+                let address = try!(self.fetch8(memory)) as u16;
+                memory.write8(address, data).map_err(Error::MemoryError)
+            }
             MemoryAddressingMode::Absolute => {
                 let address = try!(self.fetch16_le(memory));
                 memory.write8(address, data).map_err(Error::MemoryError)
             }
+            MemoryAddressingMode::AbsoluteXIndexed => {
+                let address = try!(self.fetch16_le(memory)).wrapping_add(self.registers.x_index as u16);
+                memory.write8(address, data).map_err(Error::MemoryError)
+            }
+            MemoryAddressingMode::AbsoluteYIndexed => {
+                let address = try!(self.fetch16_le(memory)).wrapping_add(self.registers.y_index as u16);
+                memory.write8(address, data).map_err(Error::MemoryError)
+            }
+            MemoryAddressingMode::IndirectYIndexed => {
+                let address_ptr = try!(self.fetch8(memory)) as u16;
+                let address = try!(memory.read16_le(address_ptr).map_err(Error::MemoryError))
+                    .wrapping_add(self.registers.y_index as u16);
+                memory.write8(address, data).map_err(Error::MemoryError)
+            }
+            _ => Err(Error::UnimplementedMemoryAddressingMode(mode)),
+        }
+    }
+
+    fn addressing_mode_address<Memory: Addressable>(&mut self,
+                                                    mode: MemoryAddressingMode,
+                                                    memory: &mut Memory)
+                                                    -> Result<Address> {
+        match mode {
+            MemoryAddressingMode::ZeroPage => Ok(try!(self.fetch8(memory)) as u16),
             _ => unimplemented!(),
         }
     }
@@ -238,8 +298,6 @@ impl Cpu {
                                                 instruction: Instruction,
                                                 memory: &mut Memory)
                                                 -> Result<()> {
-        println!("{:?}\n", instruction);
-
         match instruction {
             Instruction::SEI => {
                 self.set_disable_interrupt_status();
@@ -292,13 +350,64 @@ impl Cpu {
                     self.relative_branch(offset);
                 }
             }
+            Instruction::BNE => {
+                let offset = try!(self.fetch8(memory));
+                if !self.registers.status.zero {
+                    self.relative_branch(offset);
+                }
+            }
+            Instruction::BCS => {
+                let offset = try!(self.fetch8(memory));
+                if self.registers.status.carry {
+                    self.relative_branch(offset);
+                }
+            }
             Instruction::AND(mode) => {
                 let accumulator = self.registers.accumulator;
                 let operand = try!(self.addressing_mode_load(mode, memory));
                 self.registers.accumulator = accumulator & operand;
                 self.registers.set_arithmetic_flags_accumulator();
             }
-            _ => unimplemented!(),
+            Instruction::CMP(mode) => {
+                let accumulator = self.registers.accumulator;
+                let operand = try!(self.addressing_mode_load(mode, memory));
+                self.registers.status.compare(accumulator, operand);
+            }
+            Instruction::CPX(mode) => {
+                let x_index = self.registers.x_index;
+                let operand = try!(self.addressing_mode_load(mode, memory));
+                self.registers.status.compare(x_index, operand);
+            }
+            Instruction::CPY(mode) => {
+                let y_index = self.registers.y_index;
+                let operand = try!(self.addressing_mode_load(mode, memory));
+                self.registers.status.compare(y_index, operand);
+            }
+            Instruction::DEX => {
+                self.registers.x_index = self.registers.x_index.wrapping_sub(1);
+                self.registers.set_arithmetic_flags_x_index();
+            }
+            Instruction::DEY => {
+                self.registers.y_index = self.registers.y_index.wrapping_sub(1);
+                self.registers.set_arithmetic_flags_y_index();
+            }
+            Instruction::DEC(mode) => {
+                let address = try!(self.addressing_mode_address(mode, memory));
+                let value = try!(memory.read8(address).map_err(Error::MemoryError)).wrapping_sub(1);
+                try!(memory.write8(address, value).map_err(Error::MemoryError));
+                self.registers.set_arithmetic_flags(value);
+            }
+            Instruction::JSR => {
+                let subroutine_address = try!(self.fetch16_le(memory));
+                let return_address = self.registers.program_counter.wrapping_sub(1);
+                try!(self.push16_le(return_address, memory));
+                self.registers.program_counter = subroutine_address;
+            }
+            Instruction::RTS => {
+                let address = try!(self.pull16_le(memory)).wrapping_add(1);
+                self.registers.program_counter = address;
+            }
+            _ => return Err(Error::UnimplementedInstruction(instruction)),
         }
 
         Ok(())
@@ -315,5 +424,25 @@ impl Cpu {
     }
     fn clear_decimal_mode(&mut self) {
         self.registers.status.decimal_mode = false;
+    }
+    fn push8<Memory: Addressable>(&mut self, data: u8, memory: &mut Memory) -> Result<()> {
+        try!(memory.write8(STACK_PAGE_BOTTOM | self.registers.stack_pointer as u16, data).map_err(Error::MemoryError));
+        self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
+        Ok(())
+    }
+    fn pull8<Memory: Addressable>(&mut self, memory: &mut Memory) -> Result<u8> {
+        self.registers.stack_pointer = self.registers.stack_pointer.wrapping_add(1);
+        memory.read8(STACK_PAGE_BOTTOM | self.registers.stack_pointer as u16).map_err(Error::MemoryError)
+    }
+    fn push16_le<Memory: Addressable>(&mut self, data: u16, memory: &mut Memory) -> Result<()> {
+        let lo = data as u8;
+        let hi = (data >> 8) as u8;
+        try!(self.push8(hi, memory));
+        self.push8(lo, memory)
+    }
+    fn pull16_le<Memory: Addressable>(&mut self, memory: &mut Memory) -> Result<u16> {
+        let lo = try!(self.pull8(memory)) as u16;
+        let hi = try!(self.pull8(memory)) as u16;
+        Ok((hi << 8) | lo)
     }
 }

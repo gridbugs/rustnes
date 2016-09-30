@@ -94,5 +94,7 @@ fn main() {
 
     nes.init().expect("initialization failed");
 
-    nes.emulate_frame().unwrap();
+    if let Err(_) = nes.emulate_loop() {
+        println!("{}", (&mut nes).dump_memory(0..0x7ff));
+    }
 }

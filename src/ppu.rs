@@ -64,45 +64,26 @@ impl Ppu {
 impl Addressable for Ppu {
     fn read8(&mut self, address: Address) -> Result<u8> {
         match address {
-            CONTROLLER => Err(Error::IllegalRead(address)),
-            MASK => Err(Error::IllegalRead(address)),
+            CONTROLLER => return Err(Error::IllegalRead(address)),
+            MASK => return Err(Error::IllegalRead(address)),
             STATUS => {
                 let value = self.registers.status;
                 self.registers.status &= !STATUS_VBLANK;
-
                 Ok(value)
             }
-            _ => unimplemented!(),
-        }
-    }
-
-    fn read8_pure(&mut self, address: Address) -> Result<u8> {
-        match address {
-            CONTROLLER => Err(Error::IllegalRead(address)),
-            MASK => Err(Error::IllegalRead(address)),
-            STATUS => Ok(self.registers.status),
-            _ => unimplemented!(),
-        }
-    }
-
-    fn read8_side_effects(&mut self, address: Address) -> Result<()> {
-        match address {
-            CONTROLLER => Err(Error::IllegalRead(address)),
-            MASK => Err(Error::IllegalRead(address)),
-            STATUS => {
-                self.registers.status &= STATUS_VBLANK;
-                Ok(())
-            }
-            _ => unimplemented!(),
+            _ => return Err(Error::UnimplementedRead(address)),
         }
     }
 
     fn write8(&mut self, address: Address, data: u8) -> Result<()> {
+
+        self.registers.status |= data & STATUS_LAST_WRITE_MASK;
+
         match address {
             CONTROLLER => self.registers.controller = data,
             MASK => self.registers.mask = data,
             STATUS => return Err(Error::IllegalWrite(address)),
-            _ => unimplemented!(),
+            _ => return Err(Error::UnimplementedWrite(address)),
         }
         Ok(())
     }
