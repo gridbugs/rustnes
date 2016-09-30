@@ -1,7 +1,7 @@
 use image::NesImage;
 use cartridge;
 use addressable;
-use addressable::{PpuAddressable, Address, CartridgeAddressable};
+use addressable::{PpuAddressable, Address};
 use vram::NesVram;
 use mirror::{Mirror, HorizontalMirror, VerticalMirror};
 use image::VideoArrangement;
@@ -22,7 +22,7 @@ pub struct NromCartridgeWithMirror<M: Mirror> {
     ppu_interface: NromPpuInterface<M>,
 }
 
-impl<M: Mirror> CartridgeAddressable for NromCartridgeWithMirror<M> {}
+impl<M: Mirror> cartridge::Cartridge for NromCartridgeWithMirror<M> {}
 
 pub enum NromCartridge {
     HorizontalMirroring(NromCartridgeWithMirror<HorizontalMirror>),
@@ -126,10 +126,10 @@ impl<M: Mirror> cartridge::PpuInterface for NromCartridgeWithMirror<M> {
     fn pattern_table_write(&mut self, address: Address, _: u8) -> addressable::Result<()> {
         Err(addressable::Error::IllegalWrite(address))
     }
-    fn name_table_read(&mut self, address: Address) -> addressable::Result<u8> {
-        self.ppu_interface.internal_ram.ppu_read8(M::mirror(address))
+    fn name_table_read(&mut self, address: Address, ram: &mut NesVram) -> addressable::Result<u8> {
+        ram.ppu_read8(M::mirror(address))
     }
-    fn name_table_write(&mut self, address: Address, data: u8) -> addressable::Result<()> {
-        self.ppu_interface.internal_ram.ppu_write8(M::mirror(address), data)
+    fn name_table_write(&mut self, address: Address, data: u8, ram: &mut NesVram) -> addressable::Result<()> {
+        ram.ppu_write8(M::mirror(address), data)
     }
 }

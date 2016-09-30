@@ -1,62 +1,46 @@
 use image::NesImage;
 use cartridge;
 use nrom_cartridge::NromCartridge;
-use cpu_memory_layout::NesCpuMemoryLayout;
-use ppu_memory_layout::NesPpuMemoryLayout;
-use cpu_memory_layout_change::{MemoryWrite, NesCpuMemoryLayoutBuffer};
+use memory_layout::MemoryLayout;
 use addressable;
-use addressable::{Address, Addressable, PpuAddressable, CartridgeAddressable};
+use addressable::{Address, Addressable, PpuAddressable};
 use cpu;
 use cpu::{Cpu, RegisterFile};
 use ppu::Ppu;
+use apu::Apu;
 use ram::NesRam;
 use vram::NesVram;
 
 pub trait Nes: Addressable + PpuAddressable {
     fn init(&mut self) -> cpu::Result<()>;
     fn cpu_registers(&self) -> &RegisterFile;
-    fn cpu_tick(&mut self) -> cpu::Result<()>;
     fn emulate_frame(&mut self) -> cpu::Result<()>;
     fn emulate_loop(&mut self) -> cpu::Result<()>;
 }
 
-pub struct NesWithCartridge<C: CartridgeAddressable> {
+pub struct NesWithCartridge<C: cartridge::Cartridge> {
     cartridge: C,
     cpu: Cpu,
     ppu: Ppu,
+    apu: Apu,
     ram: NesRam,
     vram: NesVram,
-    write_buffer: Vec<MemoryWrite>,
-    read_buffer: Vec<Address>,
 }
 
-impl<C: CartridgeAddressable> NesWithCartridge<C> {
+impl<C: cartridge::Cartridge> NesWithCartridge<C> {
     pub fn new(cartridge: C) -> Self {
         NesWithCartridge {
             cartridge: cartridge,
             cpu: Cpu::new(),
             ppu: Ppu::new(),
+            apu: Apu::new(),
             ram: NesRam::new(),
             vram: NesVram::new(),
-            write_buffer: Vec::new(),
-            read_buffer: Vec::new(),
         }
     }
 
-    pub fn cpu_memory_layout(&mut self) -> NesCpuMemoryLayout<C> {
-        NesCpuMemoryLayout::new(&mut self.cartridge, &mut self.ppu, &mut self.ram)
-    }
-
-    pub fn ppu_memory_layout(&mut self) -> NesPpuMemoryLayout<C> {
-        NesPpuMemoryLayout::new(&mut self.cartridge)
-    }
-
-    pub fn cpu_memory_layout_buffer(&mut self) -> NesCpuMemoryLayoutBuffer<C> {
-        NesCpuMemoryLayoutBuffer::new(NesCpuMemoryLayout::new(&mut self.cartridge,
-                                                              &mut self.ppu,
-                                                              &mut self.ram),
-                                      &mut self.write_buffer,
-                                      &mut self.read_buffer)
+    pub fn memory_layout(&mut self) -> MemoryLayout<C> {
+        MemoryLayout::new(&mut self.cartridge, &mut self.ppu, &mut self.apu, &mut self.ram, &mut self.vram)
     }
 
     fn vblank_interval(&mut self) -> cpu::Result<()> {
@@ -70,6 +54,7 @@ impl<C: CartridgeAddressable> NesWithCartridge<C> {
     fn render_interval(&mut self) -> cpu::Result<()> {
 
         self.ppu.vblank_end();
+        try!(self.emulate_cpu(2000));
 
         Ok(())
     }
@@ -77,15 +62,15 @@ impl<C: CartridgeAddressable> NesWithCartridge<C> {
     fn emulate_cpu(&mut self, num_instructions: usize) -> cpu::Result<()> {
         let mut cpu = self.cpu;
 
-        cpu = try!(emulate_cpu(cpu, &mut self.cpu_memory_layout(), num_instructions));
+        cpu = try!(emulate_cpu(cpu, &mut self.memory_layout(), num_instructions));
 
         self.cpu = cpu;
         Ok(())
     }
 }
 
-fn emulate_cpu<A: Addressable>(mut cpu: Cpu,
-                               memory: &mut NesCpuMemoryLayout<A>,
+fn emulate_cpu<A: cartridge::Cartridge>(mut cpu: Cpu,
+                               memory: &mut MemoryLayout<A>,
                                num_instructions: usize)
                                -> cpu::Result<(Cpu)> {
 
@@ -97,38 +82,38 @@ fn emulate_cpu<A: Addressable>(mut cpu: Cpu,
     Ok(cpu)
 }
 
-fn emulate_cpu_instruction<A: Addressable>(mut cpu: Cpu,
-                                           memory: &mut NesCpuMemoryLayout<A>)
+fn emulate_cpu_instruction<A: cartridge::Cartridge>(mut cpu: Cpu,
+                                           memory: &mut MemoryLayout<A>)
                                            -> cpu::Result<(Cpu)> {
     try!(cpu.tick(memory));
 
     Ok(cpu)
 }
 
-impl<C: CartridgeAddressable> Addressable for NesWithCartridge<C> {
+impl<C: cartridge::Cartridge> Addressable for NesWithCartridge<C> {
     fn read8(&mut self, address: Address) -> addressable::Result<u8> {
-        self.cpu_memory_layout().read8(address)
+        self.memory_layout().read8(address)
     }
 
     fn write8(&mut self, address: Address, data: u8) -> addressable::Result<()> {
-        self.cpu_memory_layout().write8(address, data)
+        self.memory_layout().write8(address, data)
     }
 }
 
-impl<C: CartridgeAddressable> PpuAddressable for NesWithCartridge<C> {
+impl<C: cartridge::Cartridge> PpuAddressable for NesWithCartridge<C> {
     fn ppu_read8(&mut self, address: Address) -> addressable::Result<u8> {
-        self.ppu_memory_layout().ppu_read8(address)
+        self.memory_layout().ppu_memory_layout().ppu_read8(address)
     }
 
     fn ppu_write8(&mut self, address: Address, data: u8) -> addressable::Result<()> {
-        self.ppu_memory_layout().ppu_write8(address, data)
+        self.memory_layout().ppu_memory_layout().ppu_write8(address, data)
     }
 }
 
-impl<C: CartridgeAddressable> Nes for NesWithCartridge<C> {
+impl<C: cartridge::Cartridge> Nes for NesWithCartridge<C> {
     fn init(&mut self) -> cpu::Result<()> {
         let mut cpu = self.cpu;
-        try!(cpu.init(&mut self.cpu_memory_layout()));
+        try!(cpu.init(&mut self.memory_layout()));
         self.cpu = cpu;
 
         Ok(())
@@ -136,20 +121,6 @@ impl<C: CartridgeAddressable> Nes for NesWithCartridge<C> {
 
     fn cpu_registers(&self) -> &RegisterFile {
         &self.cpu.registers
-    }
-
-    fn cpu_tick(&mut self) -> cpu::Result<()> {
-        let mut cpu = self.cpu;
-
-        {
-            let mut buffer = self.cpu_memory_layout_buffer();
-            try!(cpu.tick(&mut buffer));
-            try!(buffer.apply().map_err(cpu::Error::MemoryError));
-        }
-
-        self.cpu = cpu;
-
-        Ok(())
     }
 
     fn emulate_frame(&mut self) -> cpu::Result<()> {
@@ -160,8 +131,9 @@ impl<C: CartridgeAddressable> Nes for NesWithCartridge<C> {
     }
 
     fn emulate_loop(&mut self) -> cpu::Result<()> {
-        for _ in 0..60 {
+        for _ in 0..1000 {
             try!(self.emulate_frame());
+            //println!("#############################################");
         }
 
         Ok(())

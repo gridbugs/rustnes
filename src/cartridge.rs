@@ -1,7 +1,8 @@
 use std::result;
 
+use vram::NesVram;
 use addressable;
-use addressable::{Addressable, PpuAddressable, Address};
+use addressable::{Addressable, Address};
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -48,9 +49,16 @@ pub trait CpuInterface {
 pub trait PpuInterface {
     fn pattern_table_read(&mut self, address: Address) -> addressable::Result<u8>;
     fn pattern_table_write(&mut self, address: Address, data: u8) -> addressable::Result<()>;
-    fn name_table_read(&mut self, address: Address) -> addressable::Result<u8>;
-    fn name_table_write(&mut self, address: Address, data: u8) -> addressable::Result<()>;
+    fn name_table_read(&mut self, address: Address, ram: &mut NesVram) -> addressable::Result<u8>;
+    fn name_table_write(&mut self, address: Address, data: u8, ram: &mut NesVram) -> addressable::Result<()>;
 }
+
+pub trait CartridgePpuAddressable {
+    fn ppu_read8(&mut self, address: Address, ram: &mut NesVram) -> addressable::Result<u8>;
+    fn ppu_write8(&mut self, address: Address, data: u8, ram: &mut NesVram) -> addressable::Result<()>;
+}
+
+pub trait Cartridge: Addressable + CartridgePpuAddressable {}
 
 impl<C: CpuInterface> Addressable for C {
     fn read8(&mut self, address: Address) -> addressable::Result<u8> {
@@ -76,24 +84,24 @@ impl<C: CpuInterface> Addressable for C {
     }
 }
 
-impl<P: PpuInterface> PpuAddressable for P {
-    fn ppu_read8(&mut self, address: Address) -> addressable::Result<u8> {
+impl<P: PpuInterface> CartridgePpuAddressable for P {
+    fn ppu_read8(&mut self, address: Address, ram: &mut NesVram) -> addressable::Result<u8> {
         match address {
             PATTERN_TABLE_START...PATTERN_TABLE_END => {
                 self.pattern_table_read(address - PATTERN_TABLE_START)
             }
-            NAME_TABLE_START...NAME_TABLE_END => self.name_table_read(address - NAME_TABLE_START),
+            NAME_TABLE_START...NAME_TABLE_END => self.name_table_read(address - NAME_TABLE_START, ram),
             _ => Err(addressable::Error::BusErrorRead(address)),
         }
     }
 
-    fn ppu_write8(&mut self, address: Address, data: u8) -> addressable::Result<()> {
+    fn ppu_write8(&mut self, address: Address, data: u8, ram: &mut NesVram) -> addressable::Result<()> {
         match address {
             PATTERN_TABLE_START...PATTERN_TABLE_END => {
                 self.pattern_table_write(address - PATTERN_TABLE_START, data)
             }
             NAME_TABLE_START...NAME_TABLE_END => {
-                self.name_table_write(address - NAME_TABLE_START, data)
+                self.name_table_write(address - NAME_TABLE_START, data, ram)
             }
             _ => Err(addressable::Error::BusErrorWrite(address)),
         }

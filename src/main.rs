@@ -12,8 +12,7 @@ mod macros;
 mod nes;
 mod image;
 mod ines;
-mod cpu_memory_layout;
-mod cpu_memory_layout_change;
+mod memory_layout;
 mod ram;
 mod vram;
 mod mirror;
@@ -22,6 +21,7 @@ mod cartridge;
 mod nrom_cartridge;
 mod cpu;
 mod ppu;
+mod apu;
 mod ppu_memory_layout;
 mod debug;
 mod instruction;
@@ -94,7 +94,5 @@ fn main() {
 
     nes.init().expect("initialization failed");
 
-    if let Err(_) = nes.emulate_loop() {
-        println!("{}", (&mut nes).dump_memory(0..0x7ff));
-    }
+    nes.emulate_loop().unwrap();
 }
