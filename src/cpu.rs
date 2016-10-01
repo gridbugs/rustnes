@@ -263,7 +263,6 @@ impl Cpu {
             try!(self.nmi(memory));
         }
 
-        let pc = self.registers.program_counter;
         let opcode = try!(self.fetch8(memory));
 
         let instruction = try!(Self::decode_instruction(opcode));
