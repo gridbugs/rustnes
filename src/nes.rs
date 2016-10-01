@@ -140,7 +140,6 @@ impl<C: cartridge::Cartridge> Nes for NesWithCartridge<C> {
     fn emulate_loop(&mut self) -> cpu::Result<()> {
         for _ in 0..1000 {
             try!(self.emulate_frame());
-            //println!("#############################################");
         }
 
         Ok(())

@@ -98,5 +98,7 @@ fn main() {
     if let Err(e) = nes.emulate_loop() {
         println!("{}", (&mut nes).dump_memory(0..0x7ff));
         panic!("{:?}", e);
+    } else {
+        println!("{}", (&mut nes).dump_memory(0..0x7ff));
     }
 }

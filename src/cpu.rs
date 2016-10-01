@@ -208,14 +208,12 @@ impl RegisterFile {
 
 impl fmt::Display for RegisterFile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(writeln!(f, "Registers"));
-        try!(writeln!(f, "---------"));
-        try!(writeln!(f, "PC:     0x{:02x}", self.program_counter));
-        try!(writeln!(f, "SP:     0x{:02x}", self.stack_pointer));
-        try!(writeln!(f, "ACC:    0x{:02x}", self.accumulator));
-        try!(writeln!(f, "X:      0x{:02x}", self.x_index));
-        try!(writeln!(f, "Y:      0x{:02x}", self.y_index));
-        try!(writeln!(f, "Status: {}", self.status));
+        try!(write!(f, "\tPC:     0x{:02x}", self.program_counter));
+        try!(write!(f, "\tSP:     0x{:02x}", self.stack_pointer));
+        try!(write!(f, "\tACC:    0x{:02x}", self.accumulator));
+        try!(write!(f, "\tX:      0x{:02x}", self.x_index));
+        try!(write!(f, "\tY:      0x{:02x}", self.y_index));
+        try!(write!(f, "\tStatus: {}", self.status));
         Ok(())
     }
 }
@@ -237,6 +235,7 @@ impl InterruptState {
 pub struct Cpu {
     pub registers: RegisterFile,
     pub interrupts: InterruptState,
+    pub count: u64,
 }
 
 const RESET_VECTOR: Address = 0xfffc;
@@ -248,6 +247,7 @@ impl Cpu {
         Cpu {
             registers: RegisterFile::new(),
             interrupts: InterruptState::new(),
+            count: 0,
         }
     }
 
@@ -262,13 +262,15 @@ impl Cpu {
         if self.interrupts.nmi {
             try!(self.nmi(memory));
         }
-        let pc = self.registers.program_counter;
 
+        let pc = self.registers.program_counter;
         let opcode = try!(self.fetch8(memory));
 
         let instruction = try!(Self::decode_instruction(opcode));
-        println!("{:04x} {:02x} {:?} x:{:02x} y:{:02x} acc:{:02x}", pc, opcode, instruction, self.registers.x_index, self.registers.y_index, self.registers.accumulator);
+
         try!(self.emulate_instruction(instruction, memory));
+
+        self.count += 1;
 
         Ok(())
     }
@@ -343,21 +345,22 @@ impl Cpu {
                                                     mode: MemoryAddressingMode,
                                                     memory: &mut Memory)
                                                     -> Result<Address> {
-        match mode {
-            MemoryAddressingMode::ZeroPage => Ok(try!(self.fetch8(memory)) as u16),
-            MemoryAddressingMode::Absolute => Ok(try!(self.fetch16_le(memory))),
-            MemoryAddressingMode::AbsoluteXIndexed => Ok(try!(self.fetch16_le(memory)).wrapping_add(self.registers.x_index as u16)),
-            MemoryAddressingMode::AbsoluteYIndexed => Ok(try!(self.fetch16_le(memory)).wrapping_add(self.registers.y_index as u16)),
+        let address = match mode {
+            MemoryAddressingMode::ZeroPage => try!(self.fetch8(memory)) as u16,
+            MemoryAddressingMode::Absolute => try!(self.fetch16_le(memory)),
+            MemoryAddressingMode::AbsoluteXIndexed => try!(self.fetch16_le(memory)).wrapping_add(self.registers.x_index as u16),
+            MemoryAddressingMode::AbsoluteYIndexed => try!(self.fetch16_le(memory)).wrapping_add(self.registers.y_index as u16),
             MemoryAddressingMode::IndirectYIndexed => {
                 let address_ptr = try!(self.fetch8(memory)) as u16;
-                let address = try!(memory.read16_le(address_ptr).map_err(Error::MemoryError))
-                    .wrapping_add(self.registers.y_index as u16);
-                Ok(address)
+                try!(memory.read16_le(address_ptr).map_err(Error::MemoryError))
+                    .wrapping_add(self.registers.y_index as u16)
             }
-            MemoryAddressingMode::ZeroPageXIndexed => Ok(try!(self.fetch8(memory)).wrapping_add(self.registers.x_index) as u16),
-            MemoryAddressingMode::ZeroPageYIndexed => Ok(try!(self.fetch8(memory)).wrapping_add(self.registers.y_index) as u16),
-            _ => Err(Error::UnimplementedMemoryAddressingMode(mode)),
-        }
+            MemoryAddressingMode::ZeroPageXIndexed => try!(self.fetch8(memory)).wrapping_add(self.registers.x_index) as u16,
+            MemoryAddressingMode::ZeroPageYIndexed => try!(self.fetch8(memory)).wrapping_add(self.registers.y_index) as u16,
+            _ => return Err(Error::UnimplementedMemoryAddressingMode(mode)),
+        };
+
+        Ok(address)
     }
 
     fn relative_branch(&mut self, offset: u8) {
@@ -423,8 +426,16 @@ impl Cpu {
                 self.registers.stack_pointer = self.registers.x_index;
             }
             Instruction::PHA => {
-                let sp = self.registers.stack_pointer;
-                try!(self.push8(sp, memory));
+                let accumulator = self.registers.accumulator;
+                try!(self.push8(accumulator, memory));
+            }
+            Instruction::PHP => {
+                let status = self.registers.status.to_byte();
+                try!(self.push8(status, memory));
+            }
+            Instruction::PLP => {
+                let status = try!(self.pull8(memory));
+                self.registers.status = StatusRegister::from_byte(status);
             }
             Instruction::PLA => {
                 self.registers.accumulator = try!(self.pull8(memory));
@@ -483,21 +494,18 @@ impl Cpu {
                 }
             }
             Instruction::AND(mode) => {
-                let accumulator = self.registers.accumulator;
                 let operand = try!(self.addressing_mode_load(mode, memory));
-                self.registers.accumulator = accumulator & operand;
+                self.registers.accumulator &= operand;
                 self.registers.set_arithmetic_flags_accumulator();
             }
             Instruction::ORA(mode) => {
-                let accumulator = self.registers.accumulator;
                 let operand = try!(self.addressing_mode_load(mode, memory));
-                self.registers.accumulator = accumulator | operand;
+                self.registers.accumulator |= operand;
                 self.registers.set_arithmetic_flags_accumulator();
             }
             Instruction::EOR(mode) => {
-                let accumulator = self.registers.accumulator;
                 let operand = try!(self.addressing_mode_load(mode, memory));
-                self.registers.accumulator = accumulator ^ operand;
+                self.registers.accumulator ^= operand;
                 self.registers.set_arithmetic_flags_accumulator();
             }
             Instruction::CMP(mode) => {
@@ -553,6 +561,12 @@ impl Cpu {
                 let address = try!(self.pull16_le(memory)).wrapping_add(1);
                 self.registers.program_counter = address;
             }
+            Instruction::RTI => {
+                let status = try!(self.pull8(memory));
+                self.registers.status = StatusRegister::from_byte(status);
+                let program_counter = try!(self.pull16_le(memory));
+                self.registers.program_counter = program_counter;
+            }
             Instruction::BIT(mode) => {
                 let operand = try!(self.addressing_mode_load(mode, memory));
                 let and = self.registers.accumulator & operand;
@@ -563,6 +577,18 @@ impl Cpu {
             Instruction::JMP => {
                 self.registers.program_counter = try!(self.fetch16_le(memory));
             }
+            Instruction::JMPI => {
+                let mut address_ptr_lo = try!(self.fetch8(memory));
+                let address_ptr_hi = try!(self.fetch8(memory)) as u16;
+
+                let address_lo = try!(memory.read8((address_ptr_hi << 8) | (address_ptr_lo as u16))
+                                      .map_err(Error::MemoryError)) as u16;
+                address_ptr_lo = address_ptr_lo.wrapping_add(1);
+                let address_hi = try!(memory.read8((address_ptr_hi << 8) | (address_ptr_lo as u16))
+                                      .map_err(Error::MemoryError)) as u16;
+
+                self.registers.program_counter = (address_hi << 8) | address_lo;
+            }
             Instruction::LSR(AddressingMode::Accumulator) => {
                 self.registers.status.carry = self.registers.accumulator & bit!(0) != 0;
                 self.registers.accumulator >>= 1;
@@ -570,9 +596,10 @@ impl Cpu {
             }
             Instruction::LSR(AddressingMode::Memory(mode)) => {
                 let address = try!(self.addressing_mode_address(mode, memory));
-                let value = try!(memory.read8(address).map_err(Error::MemoryError));
+                let mut value = try!(memory.read8(address).map_err(Error::MemoryError));
                 self.registers.status.carry = value & bit!(0) != 0;
-                try!(memory.write8(address, value >> 1).map_err(Error::MemoryError));
+                value >>= 1;
+                try!(memory.write8(address, value).map_err(Error::MemoryError));
                 self.registers.set_arithmetic_flags(value);
             }
             Instruction::ROR(AddressingMode::Memory(mode)) => {
@@ -587,6 +614,18 @@ impl Cpu {
                 try!(memory.write8(address, value).map_err(Error::MemoryError));
                 self.registers.set_arithmetic_flags(value);
             }
+            Instruction::ROL(AddressingMode::Memory(mode)) => {
+                let address = try!(self.addressing_mode_address(mode, memory));
+                let mut value = try!(memory.read8(address).map_err(Error::MemoryError));
+                let carry = self.registers.status.carry;
+                self.registers.status.carry = value & bit!(7) != 0;
+                value <<= 1;
+                if carry {
+                    value |= bit!(0);
+                }
+                try!(memory.write8(address, value).map_err(Error::MemoryError));
+                self.registers.set_arithmetic_flags(value);
+            }
             Instruction::ROL(AddressingMode::Accumulator) => {
                 let carry = self.registers.status.carry;
                 let mut value = self.registers.accumulator;
@@ -596,13 +635,25 @@ impl Cpu {
                     value |= bit!(0);
                 }
                 self.registers.accumulator = value;
-                self.registers.set_arithmetic_flags(value);
+                self.registers.set_arithmetic_flags_accumulator();
+            }
+            Instruction::ROR(AddressingMode::Accumulator) => {
+                let carry = self.registers.status.carry;
+                let mut value = self.registers.accumulator;
+                self.registers.status.carry = value & bit!(0) != 0;
+                value >>= 1;
+                if carry {
+                    value |= bit!(7);
+                }
+                self.registers.accumulator = value;
+                self.registers.set_arithmetic_flags_accumulator();
             }
             Instruction::ASL(AddressingMode::Memory(mode)) => {
                 let address = try!(self.addressing_mode_address(mode, memory));
-                let value = try!(memory.read8(address).map_err(Error::MemoryError));
+                let mut value = try!(memory.read8(address).map_err(Error::MemoryError));
                 self.registers.status.carry = value & bit!(7) != 0;
-                try!(memory.write8(address, value << 1).map_err(Error::MemoryError));
+                value <<= 1;
+                try!(memory.write8(address, value).map_err(Error::MemoryError));
                 self.registers.set_arithmetic_flags(value);
             }
             Instruction::ASL(AddressingMode::Accumulator) => {
@@ -620,6 +671,20 @@ impl Cpu {
                 self.registers.status.overflow = (!(operand ^ self.registers.accumulator)) & (operand ^ sum) & bit!(7) != 0;
                 self.registers.accumulator = sum;
                 self.registers.status.carry = carry;
+                self.registers.set_arithmetic_flags_accumulator();
+            }
+            Instruction::SBC(mode) => {
+                let operand = try!(self.addressing_mode_load(mode, memory));
+                let (partial_dif, borrow_a) = self.registers.accumulator.overflowing_sub(operand);
+                let (dif, borrow_b) = partial_dif.overflowing_sub(if self.registers.status.carry { 0 } else { 1 });
+
+                let borrow = borrow_a || borrow_b;
+
+                self.registers.status.overflow = (self.registers.accumulator ^ operand) &
+                                                 (self.registers.accumulator ^ dif) & bit!(7) != 0;
+
+                self.registers.accumulator = dif;
+                self.registers.status.carry = !borrow;
                 self.registers.set_arithmetic_flags_accumulator();
             }
             _ => return Err(Error::UnimplementedInstruction(instruction)),

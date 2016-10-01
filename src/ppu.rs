@@ -156,18 +156,15 @@ impl Ppu {
                 match self.address_phase {
                     AddressPhase::HIGH => {
                         self.address_phase = AddressPhase::LOW;
-                        println!("ppu partial address {:02x}", data);
                     }
                     AddressPhase::LOW => {
                         self.address_phase = AddressPhase::HIGH;
                         self.address = ((self.registers.address as u16) << 8) | (data as u16);
-                        println!("ppu set address {:04x}", self.address);
                     }
                 }
                 self.registers.address = data;
             }
             DATA => {
-                println!("ppu write {:04x}", self.address);
                 try!(memory.ppu_write8(self.address, data));
                 self.increment_address();
             }
