@@ -7,9 +7,10 @@ use addressable::{Address, Addressable, PpuAddressable};
 use cpu;
 use cpu::{Cpu, RegisterFile};
 use ppu::Ppu;
-use apu::Apu;
+use io::Io;
 use ram::NesRam;
 use vram::NesVram;
+use palette::Palette;
 
 pub trait Nes: Addressable + PpuAddressable {
     fn init(&mut self) -> cpu::Result<()>;
@@ -22,9 +23,10 @@ pub struct NesWithCartridge<C: cartridge::Cartridge> {
     cartridge: C,
     cpu: Cpu,
     ppu: Ppu,
-    apu: Apu,
+    io: Io,
     ram: NesRam,
     vram: NesVram,
+    palette: Palette,
 }
 
 impl<C: cartridge::Cartridge> NesWithCartridge<C> {
@@ -33,18 +35,21 @@ impl<C: cartridge::Cartridge> NesWithCartridge<C> {
             cartridge: cartridge,
             cpu: Cpu::new(),
             ppu: Ppu::new(),
-            apu: Apu::new(),
+            io: Io::new(),
             ram: NesRam::new(),
             vram: NesVram::new(),
+            palette: Palette::new(),
         }
     }
 
     pub fn memory_layout(&mut self) -> MemoryLayout<C> {
-        MemoryLayout::new(&mut self.cartridge, &mut self.ppu, &mut self.apu, &mut self.ram, &mut self.vram)
+        MemoryLayout::new(&mut self.cartridge, &mut self.ppu, &mut self.io, &mut self.ram, &mut self.vram, &mut self.palette)
     }
 
     fn vblank_interval(&mut self) -> cpu::Result<()> {
-        self.ppu.vblank_start();
+        let mut interrupts = self.cpu.interrupts;
+        interrupts = self.ppu.vblank_start(interrupts);
+        self.cpu.interrupts = interrupts;
 
         try!(self.emulate_cpu(2000));
 
@@ -52,8 +57,10 @@ impl<C: cartridge::Cartridge> NesWithCartridge<C> {
     }
 
     fn render_interval(&mut self) -> cpu::Result<()> {
+        let mut interrupts = self.cpu.interrupts;
+        interrupts = self.ppu.vblank_end(interrupts);
+        self.cpu.interrupts = interrupts;
 
-        self.ppu.vblank_end();
         try!(self.emulate_cpu(2000));
 
         Ok(())

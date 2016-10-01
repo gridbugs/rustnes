@@ -11,15 +11,15 @@ const DMC_END: Address = 0x13;
 pub const STATUS: Address = 0x15;
 pub const FRAME_COUNTER: Address = 0x17;
 
-pub struct Apu {}
+pub struct Io {}
 
-impl Apu {
+impl Io {
     pub fn new() -> Self {
-        Apu {}
+        Io {}
     }
 }
 
-impl Addressable for Apu {
+impl Addressable for Io {
     fn read8(&mut self, _: Address) -> Result<u8> {
         Ok(0)
     }

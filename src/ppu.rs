@@ -1,4 +1,5 @@
 use addressable::{PpuAddressable, Address, Result, Error};
+use cpu::InterruptState;
 
 const CONTROLLER: Address = 0;
 const MASK: Address = 1;
@@ -81,12 +82,19 @@ impl Ppu {
         }
     }
 
-    pub fn vblank_start(&mut self) {
+    pub fn vblank_start(&mut self, mut interrupts: InterruptState) -> InterruptState {
         self.registers.status |= STATUS_VBLANK;
+
+        if self.registers.controller & CONTROLLER_VBLANK_NMI != 0 {
+            interrupts.nmi = true;
+        }
+
+        interrupts
     }
 
-    pub fn vblank_end(&mut self) {
+    pub fn vblank_end(&mut self, interrupts: InterruptState) -> InterruptState {
         self.registers.status &= !STATUS_VBLANK;
+        interrupts
     }
 
     fn increment_address(&mut self) {
@@ -146,15 +154,20 @@ impl Ppu {
             }
             ADDRESS => {
                 match self.address_phase {
-                    AddressPhase::HIGH => self.address_phase = AddressPhase::LOW,
+                    AddressPhase::HIGH => {
+                        self.address_phase = AddressPhase::LOW;
+                        println!("ppu partial address {:02x}", data);
+                    }
                     AddressPhase::LOW => {
                         self.address_phase = AddressPhase::HIGH;
                         self.address = ((self.registers.address as u16) << 8) | (data as u16);
+                        println!("ppu set address {:04x}", self.address);
                     }
                 }
                 self.registers.address = data;
             }
             DATA => {
+                println!("ppu write {:04x}", self.address);
                 try!(memory.ppu_write8(self.address, data));
                 self.increment_address();
             }

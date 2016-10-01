@@ -21,10 +21,11 @@ mod cartridge;
 mod nrom_cartridge;
 mod cpu;
 mod ppu;
-mod apu;
+mod io;
 mod ppu_memory_layout;
 mod debug;
 mod instruction;
+mod palette;
 
 use debug::NesDebug;
 
@@ -94,5 +95,8 @@ fn main() {
 
     nes.init().expect("initialization failed");
 
-    nes.emulate_loop().unwrap();
+    if let Err(e) = nes.emulate_loop() {
+        println!("{}", (&mut nes).dump_memory(0..0x7ff));
+        panic!("{:?}", e);
+    }
 }
