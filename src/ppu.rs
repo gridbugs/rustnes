@@ -67,6 +67,7 @@ pub struct Ppu {
     address_phase: AddressPhase,
     address: Address,
     oam: Vec<u8>,
+    data_latch: u8,
 }
 
 impl Ppu {
@@ -79,6 +80,7 @@ impl Ppu {
             address_phase: AddressPhase::HIGH,
             address: 0,
             oam: vec![0; 256],
+            data_latch: 0,
         }
     }
 
@@ -119,7 +121,8 @@ impl Ppu {
             SCROLL => return Err(Error::IllegalRead(address)),
             ADDRESS => return Err(Error::IllegalRead(address)),
             DATA => {
-                let data = try!(memory.ppu_read8(self.address));
+                let data = self.data_latch;
+                self.data_latch = try!(memory.ppu_read8(self.address));
                 self.increment_address();
                 data
             }
