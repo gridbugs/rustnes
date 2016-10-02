@@ -238,6 +238,13 @@ pub struct Cpu {
     pub count: u64,
 }
 
+impl fmt::Display for Cpu {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(write!(f, "registers: {}", self.registers));
+        Ok(())
+    }
+}
+
 const RESET_VECTOR: Address = 0xfffc;
 const NMI_VECTOR: Address = 0xfffa;
 const STACK_PAGE_BOTTOM: Address = 0x0100;

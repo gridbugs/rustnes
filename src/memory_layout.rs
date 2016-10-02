@@ -60,8 +60,19 @@ impl<'a, C: 'a + Cartridge> MemoryLayout<'a, C> {
         }
     }
 
-    fn ppu_oam_dma(&mut self, address: u8) -> Result<()> {
-        println!("DMA from page {:02x}", address);
+    fn ppu_oam_dma(&mut self, page: u8) -> Result<()> {
+        let mut address = (page as u16) << 8;
+        let end_address = address | 0xff;
+
+        self.ppu.set_oam_address(0);
+        loop {
+            let data = try!(self.read8(address));
+            self.ppu.oam_data_write(data);
+            if address == end_address {
+                break;
+            }
+            address = address.wrapping_add(1);
+        }
         Ok(())
     }
 

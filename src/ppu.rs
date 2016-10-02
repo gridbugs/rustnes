@@ -1,3 +1,5 @@
+use std::fmt;
+
 use addressable::{PpuAddressable, Address, Result, Error};
 use cpu::InterruptState;
 
@@ -32,6 +34,8 @@ const STATUS_SPRITE_OVERFLOW: u8 = bit!(5);
 const STATUS_SPRITE_0_HIT: u8 = bit!(6);
 const STATUS_VBLANK: u8 = bit!(7);
 
+const OAM_SIZE: usize = 256;
+
 enum ScrollAxis { X, Y }
 enum AddressPhase { LOW, HIGH }
 
@@ -42,9 +46,17 @@ pub struct PpuRegisterFile {
     oam_address: u8,
     scroll: u8,
     address: u8,
-    data: u8,
 }
 
+impl fmt::Display for PpuRegisterFile {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(writeln!(f, "PPUCTRL: {:02x}", self.controller));
+        try!(writeln!(f, "PPUMASK: {:02x}", self.mask));
+        try!(writeln!(f, "PPUSTATUS: {:02x}", self.status));
+        try!(writeln!(f, "OAMADDR: {:02x}", self.oam_address));
+        Ok(())
+    }
+}
 impl PpuRegisterFile {
     fn new() -> Self {
         PpuRegisterFile {
@@ -54,7 +66,6 @@ impl PpuRegisterFile {
             oam_address: 0,
             scroll: 0,
             address: 0,
-            data: 0,
         }
     }
 }
@@ -70,6 +81,27 @@ pub struct Ppu {
     data_latch: u8,
 }
 
+impl fmt::Display for Ppu {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(writeln!(f, "scroll: [ x: {}, y: {} ]", self.scroll_x, self.scroll_y));
+        try!(writeln!(f, "address: {:04x}", self.address));
+        try!(write!(f, "registers:\n{}", self.registers));
+        try!(writeln!(f, "OAM:"));
+        let mut address = 0;
+        loop {
+            try!(write!(f, "0x{:02x}:", address));
+            for _ in 0..16 {
+                try!(write!(f, " {:02x}", self.oam[address]));
+                address += 1;
+            }
+            try!(writeln!(f, ""));
+            if address == OAM_SIZE {
+                break;
+            }
+        }
+        Ok(())
+    }
+}
 impl Ppu {
     pub fn new() -> Self {
         Ppu {
@@ -79,7 +111,7 @@ impl Ppu {
             scroll_y: 0,
             address_phase: AddressPhase::HIGH,
             address: 0,
-            oam: vec![0; 256],
+            oam: vec![0; OAM_SIZE],
             data_latch: 0,
         }
     }
@@ -97,6 +129,15 @@ impl Ppu {
     pub fn vblank_end(&mut self, interrupts: InterruptState) -> InterruptState {
         self.registers.status &= !STATUS_VBLANK;
         interrupts
+    }
+
+    pub fn set_oam_address(&mut self, address: u8) {
+        self.registers.oam_address = address;
+    }
+
+    pub fn oam_data_write(&mut self, data: u8) {
+        self.oam[self.registers.oam_address as usize] = data;
+        self.registers.oam_address = self.registers.oam_address.wrapping_add(1);
     }
 
     fn increment_address(&mut self) {
@@ -139,11 +180,8 @@ impl Ppu {
             CONTROLLER => self.registers.controller = data,
             MASK => self.registers.mask = data,
             STATUS => return Err(Error::IllegalWrite(address)),
-            OAM_ADDRESS => self.registers.oam_address = data,
-            OAM_DATA => {
-                self.oam[self.registers.oam_address as usize] = data;
-                self.registers.oam_address = self.registers.oam_address.wrapping_add(1);
-            }
+            OAM_ADDRESS => self.set_oam_address(data),
+            OAM_DATA => self.oam_data_write(data),
             SCROLL => {
                 match self.scroll_axis {
                     ScrollAxis::X => self.scroll_axis = ScrollAxis::Y,

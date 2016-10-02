@@ -99,7 +99,10 @@ fn main() {
         println!("{}", (&mut nes).dump_memory(0..0x7ff));
         panic!("{:?}", e);
     } else {
-        println!("{}", (&mut nes).dump_memory(0..0x7ff));
-        println!("{}", (&mut nes).ppu_dump_memory(0x2000..0x2fff));
+        println!("\nRAM{}", (&mut nes).dump_memory(0..0x7ff));
+        println!("\nVRAM{}", (&mut nes).ppu_dump_memory(0x2000..0x2fff));
+        println!("\nPalette{}", (&mut nes).ppu_dump_memory(0x3f00..0x3f1f));
+        println!("\nCPU\n{}", nes.cpu());
+        println!("\nPPU\n{}", nes.ppu());
     }
 }

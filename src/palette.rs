@@ -1,16 +1,22 @@
 use addressable::{Address, Result};
 
-pub struct Palette {}
+const PALETTE_SIZE: usize = 0x20;
+
+pub struct Palette {
+    ram: Vec<u8>,
+}
+
 impl Palette {
     pub fn new() -> Self {
-        Palette {}
+        Palette {
+            ram: vec![0; PALETTE_SIZE],
+        }
     }
     pub fn ppu_read8(&mut self, address: Address) -> Result<u8> {
-        println!("pallete read {:04x}", address);
-        Ok(0)
+        Ok(self.ram[address as usize])
     }
     pub fn ppu_write8(&mut self, address: Address, data: u8) -> Result<()> {
-        println!("pallete write {:04x}: {:02x}", address, data);
+        self.ram[address as usize] = data;
         Ok(())
     }
 }

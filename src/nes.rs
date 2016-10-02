@@ -5,7 +5,7 @@ use memory_layout::MemoryLayout;
 use addressable;
 use addressable::{Address, Addressable, PpuAddressable};
 use cpu;
-use cpu::{Cpu, RegisterFile};
+use cpu::Cpu;
 use ppu::Ppu;
 use io::Io;
 use ram::NesRam;
@@ -14,9 +14,11 @@ use palette::Palette;
 
 pub trait Nes: Addressable + PpuAddressable {
     fn init(&mut self) -> cpu::Result<()>;
-    fn cpu_registers(&self) -> &RegisterFile;
     fn emulate_frame(&mut self) -> cpu::Result<()>;
     fn emulate_loop(&mut self) -> cpu::Result<()>;
+
+    fn cpu(&self) -> &Cpu;
+    fn ppu(&self) -> &Ppu;
 }
 
 pub struct NesWithCartridge<C: cartridge::Cartridge> {
@@ -126,10 +128,6 @@ impl<C: cartridge::Cartridge> Nes for NesWithCartridge<C> {
         Ok(())
     }
 
-    fn cpu_registers(&self) -> &RegisterFile {
-        &self.cpu.registers
-    }
-
     fn emulate_frame(&mut self) -> cpu::Result<()> {
         try!(self.vblank_interval());
         try!(self.render_interval());
@@ -143,6 +141,14 @@ impl<C: cartridge::Cartridge> Nes for NesWithCartridge<C> {
         }
 
         Ok(())
+    }
+
+    fn cpu(&self) -> &Cpu {
+        &self.cpu
+    }
+
+    fn ppu(&self) -> &Ppu {
+        &self.ppu
     }
 }
 
