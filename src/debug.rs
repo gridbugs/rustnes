@@ -8,6 +8,7 @@ use addressable::{Address, AddressDiff};
 pub trait NesDebug {
     fn dump_rom<'a>(&'a mut self) -> NesRomDump<'a>;
     fn dump_memory<'a>(&'a mut self, range: Range<Address>) -> NesMemoryDump<'a>;
+    fn ppu_dump_memory<'a>(&'a mut self, range: Range<Address>) -> NesPpuMemoryDump<'a>;
 }
 
 pub struct NesRomDump<'a> {
@@ -18,6 +19,10 @@ pub struct NesMemoryDump<'a> {
     nes: RefCell<&'a mut Box<nes::Nes>>,
     range: Range<Address>,
 }
+pub struct NesPpuMemoryDump<'a> {
+    nes: RefCell<&'a mut Box<nes::Nes>>,
+    range: Range<Address>,
+}
 
 impl<'a> NesDebug for &'a mut Box<nes::Nes> {
     fn dump_rom(&mut self) -> NesRomDump {
@@ -25,6 +30,12 @@ impl<'a> NesDebug for &'a mut Box<nes::Nes> {
     }
     fn dump_memory(&mut self, range: Range<Address>) -> NesMemoryDump {
         NesMemoryDump {
+            nes: RefCell::new(self),
+            range: range,
+        }
+    }
+    fn ppu_dump_memory(&mut self, range: Range<Address>) -> NesPpuMemoryDump {
+        NesPpuMemoryDump {
             nes: RefCell::new(self),
             range: range,
         }
@@ -112,6 +123,38 @@ impl<'a> fmt::Display for NesMemoryDump<'a> {
             }
 
             if let Ok(data) = nes.read8(address) {
+                if data == 0 {
+                    try!(write!(f, ".."));
+                } else {
+                    try!(write!(f, "{:02x}", data));
+                }
+            } else {
+                try!(write!(f, "??"));
+            }
+
+            if address == self.range.end {
+                break;
+            } else {
+                address += 1;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for NesPpuMemoryDump<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut nes = self.nes.borrow_mut();
+
+        let mut address = self.range.start;
+        loop {
+            if address % WIDTH == 0 {
+                try!(write!(f, "\n0x{:04x}: ", address));
+            } else {
+                try!(write!(f, " "));
+            }
+
+            if let Ok(data) = nes.ppu_read8(address) {
                 if data == 0 {
                     try!(write!(f, ".."));
                 } else {
