@@ -2,46 +2,46 @@ use std::fmt;
 use std::cell::RefCell;
 use std::ops::Range;
 
-use nes;
-use addressable::{Address, AddressDiff};
+use nes::NesWithCartridge;
+use cartridge::Cartridge;
+use addressable::{Address, AddressDiff, Addressable, PpuAddressable};
 
-pub trait NesDebug {
-    fn dump_rom<'a>(&'a mut self) -> NesRomDump<'a>;
-    fn dump_memory<'a>(&'a mut self, range: Range<Address>) -> NesMemoryDump<'a>;
-    fn ppu_dump_memory<'a>(&'a mut self, range: Range<Address>) -> NesPpuMemoryDump<'a>;
+pub trait NesDebug<C: Cartridge> {
+    fn dump_rom<'a>(&'a mut self) -> NesRomDump<'a, C>;
+    fn dump_memory<'a>(&'a mut self, range: Range<Address>) -> NesMemoryDump<'a, C>;
+    fn ppu_dump_memory<'a>(&'a mut self, range: Range<Address>) -> NesPpuMemoryDump<'a, C>;
 }
 
-pub struct NesRomDump<'a> {
-    nes: RefCell<&'a mut Box<nes::Nes>>,
+pub struct NesRomDump<'a, C: 'a + Cartridge> {
+    nes: RefCell<&'a mut NesWithCartridge<C>>,
 }
 
-pub struct NesMemoryDump<'a> {
-    nes: RefCell<&'a mut Box<nes::Nes>>,
+pub struct NesMemoryDump<'a, C: 'a + Cartridge> {
+    nes: RefCell<&'a mut NesWithCartridge<C>>,
     range: Range<Address>,
 }
-pub struct NesPpuMemoryDump<'a> {
-    nes: RefCell<&'a mut Box<nes::Nes>>,
+pub struct NesPpuMemoryDump<'a, C: 'a + Cartridge> {
+    nes: RefCell<&'a mut NesWithCartridge<C>>,
     range: Range<Address>,
 }
 
-impl<'a> NesDebug for &'a mut Box<nes::Nes> {
-    fn dump_rom(&mut self) -> NesRomDump {
+impl<'a, C: Cartridge> NesDebug<C> for NesWithCartridge<C> {
+    fn dump_rom(&mut self) -> NesRomDump<C> {
         NesRomDump { nes: RefCell::new(self) }
     }
-    fn dump_memory(&mut self, range: Range<Address>) -> NesMemoryDump {
+    fn dump_memory(&mut self, range: Range<Address>) -> NesMemoryDump<C> {
         NesMemoryDump {
             nes: RefCell::new(self),
             range: range,
         }
     }
-    fn ppu_dump_memory(&mut self, range: Range<Address>) -> NesPpuMemoryDump {
+    fn ppu_dump_memory(&mut self, range: Range<Address>) -> NesPpuMemoryDump<C> {
         NesPpuMemoryDump {
             nes: RefCell::new(self),
             range: range,
         }
     }
 }
-
 
 const WIDTH: AddressDiff = 32;
 
@@ -53,7 +53,7 @@ const MEMORY_END: AddressDiff = 0xffff;
 const PATTERN_TABLE_START: Address = 0x0000;
 const PATTERN_TABLE_SIZE: AddressDiff = 0x2000;
 
-impl<'a> fmt::Display for NesRomDump<'a> {
+impl<'a, C: Cartridge> fmt::Display for NesRomDump<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut nes = self.nes.borrow_mut();
 
@@ -110,7 +110,7 @@ impl<'a> fmt::Display for NesRomDump<'a> {
     }
 }
 
-impl<'a> fmt::Display for NesMemoryDump<'a> {
+impl<'a, C: Cartridge> fmt::Display for NesMemoryDump<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut nes = self.nes.borrow_mut();
 
@@ -142,7 +142,7 @@ impl<'a> fmt::Display for NesMemoryDump<'a> {
     }
 }
 
-impl<'a> fmt::Display for NesPpuMemoryDump<'a> {
+impl<'a, C: Cartridge> fmt::Display for NesPpuMemoryDump<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut nes = self.nes.borrow_mut();
 

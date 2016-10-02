@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 extern crate getopts;
+extern crate sdl2;
 
 use getopts::Options;
 
@@ -26,8 +27,9 @@ mod ppu_memory_layout;
 mod debug;
 mod instruction;
 mod palette;
-
-use debug::NesDebug;
+mod renderer;
+mod frontend;
+mod sdl_frontend;
 
 fn make_arg_parser() -> Options {
     let mut opts = Options::new();
@@ -80,8 +82,8 @@ fn main() {
         }
     };
 
-    let mut nes = match nes::make_nes(&image) {
-        Ok(n) => n,
+    let mut frontend = match sdl_frontend::init(&image) {
+        Ok(f) => f,
         Err(e) => {
             println!("{:?}", e);
             return;
@@ -89,20 +91,10 @@ fn main() {
     };
 
     if matches.opt_present("d") {
-        println!("{}", (&mut nes).dump_rom());
+        frontend.print_rom_dump();
         return;
     }
 
-    nes.init().expect("initialization failed");
+    frontend.run();
 
-    if let Err(e) = nes.emulate_loop() {
-        println!("{}", (&mut nes).dump_memory(0..0x7ff));
-        panic!("{:?}", e);
-    } else {
-        println!("\nRAM{}", (&mut nes).dump_memory(0..0x7ff));
-        println!("\nVRAM{}", (&mut nes).ppu_dump_memory(0x2000..0x2fff));
-        println!("\nPalette{}", (&mut nes).ppu_dump_memory(0x3f00..0x3f1f));
-        println!("\nCPU\n{}", nes.cpu());
-        println!("\nPPU\n{}", nes.ppu());
-    }
 }

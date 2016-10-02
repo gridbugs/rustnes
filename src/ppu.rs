@@ -2,6 +2,7 @@ use std::fmt;
 
 use addressable::{PpuAddressable, Address, Result, Error};
 use cpu::InterruptState;
+use renderer::Frame;
 
 const CONTROLLER: Address = 0;
 const MASK: Address = 1;
@@ -102,6 +103,7 @@ impl fmt::Display for Ppu {
         Ok(())
     }
 }
+
 impl Ppu {
     pub fn new() -> Self {
         Ppu {
@@ -126,7 +128,7 @@ impl Ppu {
         interrupts
     }
 
-    pub fn vblank_end(&mut self, interrupts: InterruptState) -> InterruptState {
+   pub fn vblank_end(&mut self, interrupts: InterruptState) -> InterruptState {
         self.registers.status &= !STATUS_VBLANK;
         interrupts
     }
@@ -211,6 +213,12 @@ impl Ppu {
             }
             _ => return Err(Error::UnimplementedWrite(address)),
         }
+        Ok(())
+    }
+
+    pub fn render<F: Frame>(&mut self, frame: &mut F) -> Result<()> {
+        // TODO
+        frame.set_pixel(0, 0, 0x06);
         Ok(())
     }
 }

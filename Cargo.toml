@@ -5,3 +5,4 @@ authors = ["Stephen Sherratt <stephen@sherra.tt>"]
 
 [dependencies]
 getopts = "0.2.14"
+sdl2 = "0.23.0"
