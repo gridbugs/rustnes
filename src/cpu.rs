@@ -16,6 +16,7 @@ pub enum Error {
     UnimplementedInstruction(Instruction),
     UnimplementedMemoryAddressingMode(MemoryAddressingMode),
     UnimplementedAddressingMode(AddressingMode),
+    InfiniteLoop,
 }
 
 #[derive(Clone, Copy)]
@@ -593,7 +594,12 @@ impl Cpu {
                 self.registers.status.overflow = operand & bit!(6) != 0;
             }
             Instruction::JMP => {
-                self.registers.program_counter = try!(self.fetch16_le(memory));
+                let address = try!(self.fetch16_le(memory));
+                let original_pc = self.registers.program_counter.wrapping_sub(3);
+                self.registers.program_counter = address;
+                if address == original_pc {
+                    return Err(Error::InfiniteLoop);
+                }
             }
             Instruction::JMPI => {
                 let mut address_ptr_lo = try!(self.fetch8(memory));
@@ -605,7 +611,12 @@ impl Cpu {
                 let address_hi = try!(memory.read8((address_ptr_hi << 8) | (address_ptr_lo as u16))
                                       .map_err(Error::MemoryError)) as u16;
 
-                self.registers.program_counter = (address_hi << 8) | address_lo;
+                let address =(address_hi << 8) | address_lo;
+                let original_pc = self.registers.program_counter.wrapping_sub(3);
+                self.registers.program_counter = address;
+                if address == original_pc {
+                    return Err(Error::InfiniteLoop);
+                }
             }
             Instruction::LSR(AddressingMode::Accumulator) => {
                 self.registers.status.carry = self.registers.accumulator & bit!(0) != 0;

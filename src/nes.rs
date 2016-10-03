@@ -91,7 +91,11 @@ impl<C: cartridge::Cartridge> NesWithCartridge<C> {
         let mut cpu = self.cpu;
 
         for _ in 0..num_instructions {
-            try!(cpu.tick(&mut self.memory_layout()));
+            match cpu.tick(&mut self.memory_layout()) {
+                Ok(()) => continue,
+                Err(cpu::Error::InfiniteLoop) => break,
+                other => return other,
+            }
         }
 
         self.cpu = cpu;
