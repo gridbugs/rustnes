@@ -3,6 +3,8 @@ use sdl2::{Sdl, EventPump};
 use sdl2::render::{Texture, Renderer};
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
 
 use frontend::Frontend;
 use cartridge;
@@ -12,10 +14,11 @@ use nes::NesWithCartridge;
 use image::NesImage;
 use renderer;
 use debug::NesDebug;
+use ppu;
 
 const SCALE: u32 = 2;
-const WINDOW_WIDTH: u32 = renderer::DISPLAY_WIDTH as u32 * SCALE;
-const WINDOW_HEIGHT: u32 = renderer::DISPLAY_HEIGHT as u32 * SCALE;
+const WINDOW_WIDTH: u32 = ppu::DISPLAY_WIDTH as u32 * SCALE;
+const WINDOW_HEIGHT: u32 = ppu::DISPLAY_HEIGHT as u32 * SCALE;
 
 pub struct SdlFrontend<'a, C: Cartridge> {
     nes: NesWithCartridge<C>,
@@ -93,6 +96,20 @@ impl<'a, C: Cartridge> SdlFrontend<'a, C> {
         println!("\nCPU\n{}", self.nes.cpu);
         println!("\nPPU\n{}", self.nes.ppu);
     }
+
+    fn wait(&mut self) {
+        'running: loop {
+            for event in self.events.wait_iter() {
+                match event {
+                    Event::Quit {..}
+                    | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                        return;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
 }
 
 impl<'a, C: Cartridge> Frontend for SdlFrontend<'a, C> {
@@ -109,6 +126,8 @@ impl<'a, C: Cartridge> Frontend for SdlFrontend<'a, C> {
         }
 
         self.print_state();
+
+        self.wait();
     }
 }
 
@@ -132,8 +151,40 @@ pub fn init(image: &NesImage) -> cartridge::Result<Box<Frontend>> {
 impl<'a> SdlFrame<'a> {
     fn convert_colour(nes_colour: u8) -> (u8, u8, u8) {
         match nes_colour {
-            0x06 => (0xff, 0, 0),
-            _ => (0, 0xff, 0xff),
+            0x00 => (124, 124, 124),
+            0x01 => (0, 0, 252),
+            0x02 => (0, 0, 118),
+            0x03 => (68, 40, 188),
+            0x04 => (140, 0, 32),
+            0x05 => (168, 16, 0),
+            0x06 => (168, 0, 16),
+            0x07 => (136, 20, 0),
+            0x08 => (80, 48, 0),
+            0x09 => (0, 120, 0),
+            0x0a => (0, 104, 0),
+            0x0b => (0, 88, 0),
+            0x0c => (0, 64, 88),
+            0x0d => (0, 0, 0),
+            0x0e => (0, 0, 0),
+            0x0f => (0, 0, 0),
+            0x10 => (124, 124, 124),
+            0x11 => (0, 0, 252),
+            0x12 => (0, 0, 118),
+            0x13 => (68, 40, 188),
+            0x14 => (140, 0, 32),
+            0x15 => (168, 16, 0),
+            0x16 => (168, 0, 16),
+            0x17 => (136, 20, 0),
+            0x18 => (80, 48, 0),
+            0x19 => (0, 120, 0),
+            0x1a => (0, 104, 0),
+            0x1b => (0, 88, 0),
+            0x1c => (0, 64, 88),
+            0x1d => (0, 0, 0),
+            0x1e => (0, 0, 0),
+            0x1f => (0, 0, 0),
+ 
+            _ => (0x00, 0x00, 0x00),
         }
     }
 }

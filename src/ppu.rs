@@ -1,6 +1,6 @@
 use std::fmt;
 
-use addressable::{PpuAddressable, Address, Result, Error};
+use addressable::{PpuAddressable, Address, Result, Error, AddressDiff};
 use cpu::InterruptState;
 use renderer::Frame;
 
@@ -35,7 +35,25 @@ const STATUS_SPRITE_OVERFLOW: u8 = bit!(5);
 const STATUS_SPRITE_0_HIT: u8 = bit!(6);
 const STATUS_VBLANK: u8 = bit!(7);
 
-const OAM_SIZE: usize = 256;
+const OAM_SIZE: usize = 0x100;
+const NAMETABLE_SIZE: AddressDiff = 0x400;
+const NAMETABLE_OFFSET: AddressDiff = 0x2000;
+
+pub const DISPLAY_WIDTH: usize = 256;
+pub const DISPLAY_HEIGHT: usize = 240;
+pub const NUM_PIXELS: usize = DISPLAY_WIDTH * DISPLAY_HEIGHT;
+
+pub const WIDTH_TILES: AddressDiff = 32;
+pub const HEIGHT_TILES: AddressDiff = 30;
+pub const TILE_WIDTH: AddressDiff = 8;
+pub const TILE_HEIGHT: AddressDiff = 8;
+pub const PATTERN_TABLE_ENTRY_BYTES: AddressDiff = 16;
+pub const ATTRIBUTE_TABLE_OFFSET: AddressDiff = 0x3c0;
+
+pub const PALETTE_STRIDE: AddressDiff = 4;
+pub const UNIVERSAL_BACKGROUND_COLOUR: Address = 0x3f00;
+pub const BACKGROUND_PALETTE_BASE: Address = 0x3f00;
+pub const SPRITE_PALETTE_BASE: Address = 0x3f10;
 
 enum ScrollAxis { X, Y }
 enum AddressPhase { LOW, HIGH }
@@ -216,9 +234,104 @@ impl Ppu {
         Ok(())
     }
 
-    pub fn render<F: Frame>(&mut self, frame: &mut F) -> Result<()> {
-        // TODO
-        frame.set_pixel(0, 0, 0x06);
+    fn base_nametable_address(&self) -> Address {
+        let index = self.registers.controller & CONTROLLER_BASE_NAMETABLE_ADDRESS_MASK;
+        NAMETABLE_OFFSET + (index as u16) * NAMETABLE_SIZE
+    }
+
+    fn base_patterntable_address(&self) -> Address {
+        if self.registers.controller & CONTROLLER_BACKGROUND_PATTERN_TABLE == 0 {
+            0x0000
+        } else {
+            0x1000
+        }
+    }
+
+    fn metatile_id(tile_x: AddressDiff, tile_y: AddressDiff) -> u8 {
+        // a metatile is 2x2 tiles
+        let x = tile_x / 2;
+        let y = tile_y / 2;
+
+        // ids are unique within a 4x4 tile block
+        (((y & bit!(0)) << 1) | (x & bit!(0))) as u8
+    }
+
+    fn render_background_tile<F: Frame, M: PpuAddressable>(&mut self,
+                                                           frame: &mut F,
+                                                           memory: &mut M,
+                                                           nt_base: Address,
+                                                           nt_offset: AddressDiff,
+                                                           pt_base: Address,
+                                                           tile_x: AddressDiff,
+                                                           tile_y: AddressDiff) -> Result<()> {
+
+        let nt_address = nt_base + nt_offset;
+        let pt_index = try!(memory.ppu_read8(nt_address)) as AddressDiff;
+        let pt_offset = pt_index * PATTERN_TABLE_ENTRY_BYTES;
+        let pt_address = pt_base | pt_offset;
+
+        let at_base = nt_base + ATTRIBUTE_TABLE_OFFSET;
+        let at_index = (tile_y / 4) * (WIDTH_TILES / 4) + (tile_x / 4);
+        let at_byte_address = at_base + at_index;
+        let at_byte = try!(memory.ppu_read8(at_byte_address));
+        let at_bits = (at_byte >> (Self::metatile_id(tile_x, tile_y) * 2)) & 3;
+
+        let palette_base = BACKGROUND_PALETTE_BASE + at_bits as AddressDiff * PALETTE_STRIDE;
+
+        let pixel_base_x = tile_x * TILE_WIDTH;
+        let pixel_base_y = tile_y * TILE_HEIGHT;
+
+        for i in 0..TILE_HEIGHT {
+            let mut row_0 = try!(memory.ppu_read8(pt_address + i));
+            let mut row_1 = try!(memory.ppu_read8(pt_address + TILE_HEIGHT + i));
+
+            let pixel_y = pixel_base_y + i;
+
+            for j in 0..TILE_WIDTH {
+                let palette_index = (row_0 & bit!(0)) | ((row_1 & bit!(0)) << 1);
+                row_0 >>= 1;
+                row_1 >>= 1;
+
+                if palette_index != 0 {
+                    let palette_address = palette_base + palette_index as AddressDiff;
+                    let colour = try!(memory.ppu_read8(palette_address));
+
+                    let pixel_x = pixel_base_x + TILE_WIDTH - 1 - j;
+
+                    frame.set_pixel(pixel_x as usize, pixel_y as usize, colour);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn render_universal_background<F: Frame, M: PpuAddressable>(&mut self, frame: &mut F, memory: &mut M) -> Result<()> {
+        let colour = try!(memory.ppu_read8(UNIVERSAL_BACKGROUND_COLOUR));
+        for i in 0..DISPLAY_HEIGHT {
+            for j in 0..DISPLAY_WIDTH {
+                frame.set_pixel(j, i, colour);
+            }
+        }
+        Ok(())
+    }
+
+    fn render_background<F: Frame, M: PpuAddressable>(&mut self, frame: &mut F, memory: &mut M) -> Result<()> {
+        let base_address = self.base_nametable_address();
+        let patterntable_address = self.base_patterntable_address();
+
+        for i in 0..HEIGHT_TILES {
+            for j in 0..WIDTH_TILES {
+                let offset = i * WIDTH_TILES + j;
+                try!(self.render_background_tile(frame, memory, base_address, offset, patterntable_address, j, i));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn render<F: Frame, M: PpuAddressable>(&mut self, frame: &mut F, memory: &mut M) -> Result<()> {
+        try!(self.render_universal_background(frame, memory));
+        try!(self.render_background(frame, memory));
         Ok(())
     }
 }

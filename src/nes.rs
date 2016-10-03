@@ -10,6 +10,7 @@ use ram::NesRam;
 use vram::NesVram;
 use palette::Palette;
 use renderer::Frame;
+use ppu_memory_layout::PpuMemoryLayout;
 
 pub struct NesWithCartridge<C: cartridge::Cartridge> {
     cartridge: C,
@@ -73,7 +74,9 @@ impl<C: cartridge::Cartridge> NesWithCartridge<C> {
         interrupts = self.ppu.vblank_end(interrupts);
         self.cpu.interrupts = interrupts;
 
-        try!(self.ppu.render(frame).map_err(cpu::Error::MemoryError));
+        let mut ppu_memory = PpuMemoryLayout::new(&mut self.cartridge, &mut self.vram, &mut self.palette);
+
+        try!(self.ppu.render(frame, &mut ppu_memory).map_err(cpu::Error::MemoryError));
 
         Ok(())
     }
