@@ -74,9 +74,15 @@ impl<C: cartridge::Cartridge> NesWithCartridge<C> {
         interrupts = self.ppu.vblank_end(interrupts);
         self.cpu.interrupts = interrupts;
 
-        let mut ppu_memory = PpuMemoryLayout::new(&mut self.cartridge, &mut self.vram, &mut self.palette);
+        {
+            let mut ppu_memory = PpuMemoryLayout::new(&mut self.cartridge, &mut self.vram, &mut self.palette);
 
-        try!(self.ppu.render(frame, &mut ppu_memory).map_err(cpu::Error::MemoryError));
+            try!(self.ppu.render(frame, &mut ppu_memory).map_err(cpu::Error::MemoryError));
+        }
+
+        try!(self.emulate_cpu(2000));
+
+        self.ppu.render_end();
 
         Ok(())
     }

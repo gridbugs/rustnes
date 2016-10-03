@@ -55,6 +55,15 @@ pub const UNIVERSAL_BACKGROUND_COLOUR: Address = 0x3f00;
 pub const BACKGROUND_PALETTE_BASE: Address = 0x3f00;
 pub const SPRITE_PALETTE_BASE: Address = 0x3f10;
 
+pub const SPRITE_STRIDE: usize = 4;
+pub const NUM_SPRITES: usize = 64;
+
+const SPRITE_ATTRIBUTE_PALETTE_MASK: u8 = mask!(2);
+const SPRITE_ATTRIBUTE_PRIORITY: u8 = bit!(5);
+const SPRITE_ATTRIBUTE_HORIZONTAL_FLIP: u8 = bit!(6);
+const SPRITE_ATTRIBUTE_VERTICAL_FLIP: u8 = bit!(7);
+
+
 enum ScrollAxis { X, Y }
 enum AddressPhase { LOW, HIGH }
 
@@ -65,6 +74,35 @@ pub struct PpuRegisterFile {
     oam_address: u8,
     scroll: u8,
     address: u8,
+}
+
+#[derive(Debug)]
+struct Sprite {
+    x: u8,
+    y: u8,
+    index: u8,
+    palette: u8,
+    priority: bool,
+    horizontal_flip: bool,
+    vertical_flip: bool,
+}
+
+impl Sprite {
+    fn new(x: u8, y: u8, attributes: u8, index: u8) -> Self {
+        Sprite {
+            x: x,
+            y: y,
+            index: index,
+            palette: attributes & SPRITE_ATTRIBUTE_PALETTE_MASK,
+            priority: attributes & SPRITE_ATTRIBUTE_PRIORITY != 0,
+            horizontal_flip: attributes & SPRITE_ATTRIBUTE_HORIZONTAL_FLIP != 0,
+            vertical_flip: attributes & SPRITE_ATTRIBUTE_VERTICAL_FLIP != 0,
+        }
+    }
+
+    fn is_visible(&self) -> bool {
+        self.y < 0xef
+    }
 }
 
 impl fmt::Display for PpuRegisterFile {
@@ -146,9 +184,13 @@ impl Ppu {
         interrupts
     }
 
-   pub fn vblank_end(&mut self, interrupts: InterruptState) -> InterruptState {
+    pub fn vblank_end(&mut self, interrupts: InterruptState) -> InterruptState {
         self.registers.status &= !STATUS_VBLANK;
         interrupts
+    }
+
+    pub fn render_end(&mut self) {
+        self.registers.status &= !STATUS_SPRITE_0_HIT;
     }
 
     pub fn set_oam_address(&mut self, address: u8) {
@@ -239,13 +281,22 @@ impl Ppu {
         NAMETABLE_OFFSET + (index as u16) * NAMETABLE_SIZE
     }
 
-    fn base_patterntable_address(&self) -> Address {
+    fn background_base_patterntable_address(&self) -> Address {
         if self.registers.controller & CONTROLLER_BACKGROUND_PATTERN_TABLE == 0 {
             0x0000
         } else {
             0x1000
         }
     }
+
+    fn sprite_base_patterntable_address(&self) -> Address {
+        if self.registers.controller & CONTROLLER_SPRITE_PATTERN_TABLE_8X8 == 0 {
+            0x0000
+        } else {
+            0x1000
+        }
+    }
+
 
     fn metatile_id(tile_x: AddressDiff, tile_y: AddressDiff) -> u8 {
         // a metatile is 2x2 tiles
@@ -317,7 +368,7 @@ impl Ppu {
 
     fn render_background<F: Frame, M: PpuAddressable>(&mut self, frame: &mut F, memory: &mut M) -> Result<()> {
         let base_address = self.base_nametable_address();
-        let patterntable_address = self.base_patterntable_address();
+        let patterntable_address = self.background_base_patterntable_address();
 
         for i in 0..HEIGHT_TILES {
             for j in 0..WIDTH_TILES {
@@ -329,9 +380,66 @@ impl Ppu {
         Ok(())
     }
 
+    fn render_sprite_8x8<F: Frame, M: PpuAddressable>(&mut self, frame: &mut F, memory: &mut M, sprite: Sprite) -> Result<bool> {
+
+        let mut hit = false;
+
+        let pt_base = self.sprite_base_patterntable_address();
+        let pt_offset = sprite.index as AddressDiff * PATTERN_TABLE_ENTRY_BYTES;
+        let pt_address = pt_base | pt_offset;
+
+        let palette_base = SPRITE_PALETTE_BASE + sprite.palette as AddressDiff * PALETTE_STRIDE;
+
+        for i in 0..TILE_HEIGHT {
+            let mut row_0 = try!(memory.ppu_read8(pt_address + i));
+            let mut row_1 = try!(memory.ppu_read8(pt_address + TILE_HEIGHT + i));
+
+            let pixel_y = sprite.y as AddressDiff + i;
+
+            for j in 0..TILE_WIDTH {
+                let palette_index = (row_0 & bit!(0)) | ((row_1 & bit!(0)) << 1);
+                row_0 >>= 1;
+                row_1 >>= 1;
+
+                if palette_index != 0 {
+                    let palette_address = palette_base + palette_index as AddressDiff;
+                    let colour = try!(memory.ppu_read8(palette_address));
+
+                    let pixel_x = sprite.x as AddressDiff + TILE_WIDTH - 1 - j;
+
+                    frame.set_pixel(pixel_x as usize, pixel_y as usize, colour);
+                    hit = true;
+                }
+            }
+        }
+
+        Ok(hit)
+    }
+
+    fn render_sprites_8x8<F: Frame, M: PpuAddressable>(&mut self, frame: &mut F, memory: &mut M) -> Result<()> {
+
+        for i in 0..NUM_SPRITES {
+            let index = i * SPRITE_STRIDE;
+            let sprite = Sprite::new(self.oam[index + 3],
+                                     self.oam[index + 0],
+                                     self.oam[index + 2],
+                                     self.oam[index + 1]);
+
+            if sprite.is_visible() {
+                let hit = try!(self.render_sprite_8x8(frame, memory, sprite));
+                if i == 0 && hit {
+                    self.registers.status |= STATUS_SPRITE_0_HIT;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn render<F: Frame, M: PpuAddressable>(&mut self, frame: &mut F, memory: &mut M) -> Result<()> {
         try!(self.render_universal_background(frame, memory));
         try!(self.render_background(frame, memory));
+        try!(self.render_sprites_8x8(frame, memory));
         Ok(())
     }
 }
