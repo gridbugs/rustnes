@@ -14,6 +14,8 @@ const ADDRESS: Address = 6;
 const DATA: Address = 7;
 
 const CONTROLLER_BASE_NAMETABLE_ADDRESS_MASK: u8 = mask!(2);
+const CONTROLLER_NAMETABLE_X: u8 = bit!(0);
+const CONTROLLER_NAMETABLE_Y: u8 = bit!(1);
 const CONTROLLER_VRAM_ADDRESS_INCREMENT: u8 = bit!(2);
 const CONTROLLER_SPRITE_PATTERN_TABLE_8X8: u8 = bit!(3);
 const CONTROLLER_BACKGROUND_PATTERN_TABLE: u8 = bit!(4);
@@ -63,6 +65,9 @@ const SPRITE_ATTRIBUTE_PRIORITY: u8 = bit!(5);
 const SPRITE_ATTRIBUTE_HORIZONTAL_FLIP: u8 = bit!(6);
 const SPRITE_ATTRIBUTE_VERTICAL_FLIP: u8 = bit!(7);
 
+const TILE_SIZE_BITS: AddressDiff = 3;
+const SUBTILE_OFFSET_MASK: AddressDiff = mask!(TILE_SIZE_BITS);
+const TILE_COORD_MASK: AddressDiff = !SUBTILE_OFFSET_MASK;
 
 enum ScrollAxis { X, Y }
 enum AddressPhase { LOW, HIGH }
@@ -276,17 +281,26 @@ impl Ppu {
         Ok(())
     }
 
-    fn base_nametable_address(&self) -> Address {
-        let index = self.registers.controller & CONTROLLER_BASE_NAMETABLE_ADDRESS_MASK;
-        NAMETABLE_OFFSET + (index as u16) * NAMETABLE_SIZE
-    }
-
     fn background_base_patterntable_address(&self) -> Address {
         if self.registers.controller & CONTROLLER_BACKGROUND_PATTERN_TABLE == 0 {
             0x0000
         } else {
             0x1000
         }
+    }
+
+    fn background_top_left_coord(&self) -> (AddressDiff, AddressDiff) {
+        let mut x = self.scroll_x as AddressDiff;
+        let mut y = self.scroll_y as AddressDiff;
+
+        if self.registers.controller & CONTROLLER_NAMETABLE_X != 0 {
+            x += DISPLAY_WIDTH as AddressDiff;
+        }
+        if self.registers.controller & CONTROLLER_NAMETABLE_Y != 0 {
+            y += DISPLAY_HEIGHT as AddressDiff;
+        }
+
+        (x, y)
     }
 
     fn sprite_base_patterntable_address(&self) -> Address {
@@ -310,33 +324,38 @@ impl Ppu {
     fn render_background_tile<F: Frame, M: PpuAddressable>(&mut self,
                                                            frame: &mut F,
                                                            memory: &mut M,
-                                                           nt_base: Address,
-                                                           nt_offset: AddressDiff,
                                                            pt_base: Address,
-                                                           tile_x: AddressDiff,
-                                                           tile_y: AddressDiff) -> Result<()> {
+                                                           nt_base: Address,
+                                                           nt_tile_x: AddressDiff,
+                                                           nt_tile_y: AddressDiff,
+                                                           px_off_x: isize,
+                                                           px_off_y: isize) -> Result<()> {
 
+        let nt_offset = nt_tile_y * WIDTH_TILES + nt_tile_x;
         let nt_address = nt_base + nt_offset;
         let pt_index = try!(memory.ppu_read8(nt_address)) as AddressDiff;
         let pt_offset = pt_index * PATTERN_TABLE_ENTRY_BYTES;
         let pt_address = pt_base | pt_offset;
 
         let at_base = nt_base + ATTRIBUTE_TABLE_OFFSET;
-        let at_index = (tile_y / 4) * (WIDTH_TILES / 4) + (tile_x / 4);
+        let at_index = (nt_tile_y / 4) * (WIDTH_TILES / 4) + (nt_tile_x / 4);
         let at_byte_address = at_base + at_index;
         let at_byte = try!(memory.ppu_read8(at_byte_address));
-        let at_bits = (at_byte >> (Self::metatile_id(tile_x, tile_y) * 2)) & 3;
 
-        let palette_base = BACKGROUND_PALETTE_BASE + at_bits as AddressDiff * PALETTE_STRIDE;
+        // 2 bits per entry
+        let at_bits = (at_byte >> (Self::metatile_id(nt_tile_x, nt_tile_y) * 2)) & mask!(2);
 
-        let pixel_base_x = tile_x * TILE_WIDTH;
-        let pixel_base_y = tile_y * TILE_HEIGHT;
+        let palette_base = BACKGROUND_PALETTE_BASE + (at_bits as AddressDiff * PALETTE_STRIDE);
 
         for i in 0..TILE_HEIGHT {
             let mut row_0 = try!(memory.ppu_read8(pt_address + i));
             let mut row_1 = try!(memory.ppu_read8(pt_address + TILE_HEIGHT + i));
 
-            let pixel_y = pixel_base_y + i;
+            let pixel_y = px_off_y + i as isize;
+
+            if pixel_y < 0 || pixel_y >= DISPLAY_HEIGHT as isize {
+                continue;
+            }
 
             for j in 0..TILE_WIDTH {
                 let palette_index = (row_0 & bit!(0)) | ((row_1 & bit!(0)) << 1);
@@ -347,9 +366,12 @@ impl Ppu {
                     let palette_address = palette_base + palette_index as AddressDiff;
                     let colour = try!(memory.ppu_read8(palette_address));
 
-                    let pixel_x = pixel_base_x + TILE_WIDTH - 1 - j;
+                    let pixel_x_offset = (TILE_WIDTH - 1 - j) as isize;
+                    let pixel_x = px_off_x + pixel_x_offset;
 
-                    frame.set_pixel(pixel_x as usize, pixel_y as usize, colour);
+                    if pixel_x >= 0 && pixel_x < DISPLAY_WIDTH as isize {
+                        frame.set_pixel(pixel_x as usize, pixel_y as usize, colour);
+                    }
                 }
             }
         }
@@ -366,14 +388,49 @@ impl Ppu {
         Ok(())
     }
 
-    fn render_background<F: Frame, M: PpuAddressable>(&mut self, frame: &mut F, memory: &mut M) -> Result<()> {
-        let base_address = self.base_nametable_address();
-        let patterntable_address = self.background_base_patterntable_address();
+    // returns (nametable_start_address, nametable_offset)
+    fn tile_coord_to_nametable_base(&self, x: AddressDiff, y: AddressDiff) -> AddressDiff {
+        if x < WIDTH_TILES {
+            if y < HEIGHT_TILES {
+                0x2000
+            } else {
+                0x2800
+            }
+        } else {
+            if y < HEIGHT_TILES {
+                0x2400
+            } else {
+                0x2c00
+            }
+        }
+    }
 
-        for i in 0..HEIGHT_TILES {
-            for j in 0..WIDTH_TILES {
-                let offset = i * WIDTH_TILES + j;
-                try!(self.render_background_tile(frame, memory, base_address, offset, patterntable_address, j, i));
+    fn render_background<F: Frame, M: PpuAddressable>(&mut self, frame: &mut F, memory: &mut M) -> Result<()> {
+        let pt_base = self.background_base_patterntable_address();
+
+        let (top_left_pixel_x, top_left_pixel_y) = self.background_top_left_coord();
+
+        let pixel_offset_x = (top_left_pixel_x & SUBTILE_OFFSET_MASK) as isize;
+        let pixel_offset_y = (top_left_pixel_y & SUBTILE_OFFSET_MASK) as isize;
+
+        let tile_offset_x = top_left_pixel_x >> TILE_SIZE_BITS;
+        let tile_offset_y = top_left_pixel_y >> TILE_SIZE_BITS;
+
+        for i in 0..(HEIGHT_TILES + 1) {
+            let abs_i = (i + tile_offset_y) % (HEIGHT_TILES * 2);
+            for j in 0..(WIDTH_TILES + 1) {
+                let abs_j = (j + tile_offset_x) % (WIDTH_TILES * 2);
+
+                let nametable_address = self.tile_coord_to_nametable_base(abs_j, abs_i);
+
+                let local_x = abs_j % WIDTH_TILES;
+                let local_y = abs_i % HEIGHT_TILES;
+
+                let px_x = (j * TILE_WIDTH) as isize - pixel_offset_x;
+                let px_y = (i * TILE_HEIGHT) as isize - pixel_offset_y;
+
+                try!(self.render_background_tile(frame, memory, pt_base, nametable_address,
+                                            local_x, local_y, px_x, px_y));
             }
         }
 
@@ -394,7 +451,11 @@ impl Ppu {
             let mut row_0 = try!(memory.ppu_read8(pt_address + i));
             let mut row_1 = try!(memory.ppu_read8(pt_address + TILE_HEIGHT + i));
 
-            let pixel_y = sprite.y as AddressDiff + i;
+            let pixel_y = if sprite.vertical_flip {
+                sprite.y as AddressDiff + TILE_HEIGHT - 1 - i
+            } else {
+                sprite.y as AddressDiff + i
+            };
 
             for j in 0..TILE_WIDTH {
                 let palette_index = (row_0 & bit!(0)) | ((row_1 & bit!(0)) << 1);
@@ -405,7 +466,11 @@ impl Ppu {
                     let palette_address = palette_base + palette_index as AddressDiff;
                     let colour = try!(memory.ppu_read8(palette_address));
 
-                    let pixel_x = sprite.x as AddressDiff + TILE_WIDTH - 1 - j;
+                    let pixel_x = if sprite.horizontal_flip {
+                        sprite.x as AddressDiff + j
+                    } else {
+                        sprite.x as AddressDiff + TILE_WIDTH - 1 - j
+                    };
 
                     frame.set_pixel(pixel_x as usize, pixel_y as usize, colour);
                     hit = true;

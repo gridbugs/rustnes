@@ -9,6 +9,7 @@ use sdl2::rect::Rect;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
+
 use frontend::Frontend;
 use cartridge;
 use cartridge::Cartridge;
@@ -18,10 +19,15 @@ use image::NesImage;
 use renderer;
 use debug::NesDebug;
 use ppu;
+use io;
 
 const SCALE: u32 = 2;
 const WINDOW_WIDTH: u32 = ppu::DISPLAY_WIDTH as u32 * SCALE;
 const WINDOW_HEIGHT: u32 = ppu::DISPLAY_HEIGHT as u32 * SCALE;
+
+enum MetaControl {
+    Quit,
+}
 
 pub struct SdlFrontend<'a, C: Cartridge> {
     nes: NesWithCartridge<C>,
@@ -87,10 +93,14 @@ impl<'a, C: Cartridge> SdlFrontend<'a, C> {
         }).unwrap();
     }
 
-    fn frame(&mut self) {
+    fn frame(&mut self) -> Option<MetaControl> {
+        let meta = self.get_input();
+
         self.emulate_frame();
         self.render_texture();
-        thread::sleep(Duration::from_millis(1));
+        thread::sleep(Duration::from_millis(10));
+
+        meta
     }
 
     fn print_state(&mut self) {
@@ -101,18 +111,41 @@ impl<'a, C: Cartridge> SdlFrontend<'a, C> {
         println!("\nPPU\n{}", self.nes.ppu);
     }
 
-    fn wait(&mut self) {
-        'running: loop {
-            for event in self.events.wait_iter() {
-                match event {
-                    Event::Quit {..}
-                    | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                        return;
-                    }
-                    _ => {}
+    fn get_input(&mut self) -> Option<MetaControl> {
+        for event in self.events.poll_iter() {
+            match event {
+                Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                    return Some(MetaControl::Quit);
                 }
+                Event::KeyDown { keycode: Some(Keycode::Return), .. } => {
+                    self.nes.io.joy1_press(io::BUTTON_START);
+                }
+                Event::KeyDown { keycode: Some(Keycode::RShift), .. } => {
+                    self.nes.io.joy1_press(io::BUTTON_SELECT);
+                }
+                Event::KeyDown { keycode: Some(Keycode::A), .. } => {
+                    self.nes.io.joy1_press(io::BUTTON_A);
+                }
+                Event::KeyDown { keycode: Some(Keycode::B), .. } => {
+                    self.nes.io.joy1_press(io::BUTTON_B);
+                }
+                Event::KeyDown { keycode: Some(Keycode::Left), .. } => {
+                    self.nes.io.joy1_press(io::BUTTON_LEFT);
+                }
+                Event::KeyDown { keycode: Some(Keycode::Right), .. } => {
+                    self.nes.io.joy1_press(io::BUTTON_RIGHT);
+                }
+                Event::KeyDown { keycode: Some(Keycode::Up), .. } => {
+                    self.nes.io.joy1_press(io::BUTTON_UP);
+                }
+                Event::KeyDown { keycode: Some(Keycode::Down), .. } => {
+                    self.nes.io.joy1_press(io::BUTTON_DOWN);
+                }
+                _ => {}
             }
         }
+
+        None
     }
 }
 
@@ -125,13 +158,13 @@ impl<'a, C: Cartridge> Frontend for SdlFrontend<'a, C> {
 
         self.init();
 
-        for _ in 0..2000 {
-            self.frame();
+        loop {
+            if let Some(MetaControl::Quit) = self.frame() {
+                break;
+            }
         }
 
         self.print_state();
-
-        self.wait();
     }
 }
 
@@ -227,9 +260,11 @@ impl<'a> SdlFrame<'a> {
 impl<'a> renderer::Frame for SdlFrame<'a> {
     fn set_pixel(&mut self, x: usize, y: usize, colour: u8) {
         let offset = y * self.pitch + x * 3;
-        let (r, g, b) = Self::convert_colour(colour);
-        self.buffer[offset + 0] = r;
-        self.buffer[offset + 1] = g;
-        self.buffer[offset + 2] = b;
+        if offset + 2 < self.buffer.len() {
+            let (r, g, b) = Self::convert_colour(colour);
+            self.buffer[offset + 0] = r;
+            self.buffer[offset + 1] = g;
+            self.buffer[offset + 2] = b;
+        }
     }
 }

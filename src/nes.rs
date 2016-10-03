@@ -16,7 +16,7 @@ pub struct NesWithCartridge<C: cartridge::Cartridge> {
     cartridge: C,
     pub cpu: Cpu,
     pub ppu: Ppu,
-    io: Io,
+    pub io: Io,
     ram: NesRam,
     vram: NesVram,
     palette: Palette,

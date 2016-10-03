@@ -499,6 +499,18 @@ impl Cpu {
                     self.relative_branch(offset);
                 }
             }
+            Instruction::BVC => {
+                let offset = try!(self.fetch8(memory));
+                if !self.registers.status.overflow {
+                    self.relative_branch(offset);
+                }
+            }
+            Instruction::BVS => {
+                let offset = try!(self.fetch8(memory));
+                if self.registers.status.overflow {
+                    self.relative_branch(offset);
+                }
+            }
             Instruction::AND(mode) => {
                 let operand = try!(self.addressing_mode_load(mode, memory));
                 self.registers.accumulator &= operand;
@@ -693,6 +705,7 @@ impl Cpu {
                 self.registers.status.carry = !borrow;
                 self.registers.set_arithmetic_flags_accumulator();
             }
+            Instruction::NOP => {}
             _ => return Err(Error::UnimplementedInstruction(instruction)),
         }
 
